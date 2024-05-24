@@ -1,0 +1,165 @@
+mode ?= "debug"
+
+lake.maxjobs(8)
+
+lake.mkdir("bin")
+
+compiler := "clang++"
+linker := "clang++"
+
+compiler_flags := 
+$[
+	
+	-std=c++20
+	-Iinclude
+	-Isrc
+	-I../iro
+	-Wno-switch
+	-fcolor-diagnostics
+	-fno-caret-diagnostics
+	-Wno-#warnings
+
+]
+
+if mode == "debug" then
+	compiler_flags ..= 
+	$[ 
+		-O0 
+		-ggdb3 
+		-DLAKE_DEBUG=1
+	]
+else
+	compiler_flags ..= "-O2"
+end
+
+linker_flags := 
+$[
+	
+	-Llib
+	-lluajit
+	-lexplain
+	-Wl,--export-dynamic
+]
+
+reset := "\027[0m"
+green := "\027[0;32m"
+blue  := "\027[0;34m"
+red   := "\027[0;31m"
+
+linker_recipe := function(input, output)
+	if output == nil or input == nil then
+		error("linker_recipe passed a nil input or output", 2)
+	end
+
+    return function()
+        -- make sure the output path exists
+        dir := tostring(output):match("(.*)/")
+        lake.mkdir(dir, {make_parents = true})
+
+        start := lake.get_highres_clock()
+        result := ` $(linker) $(input) $(linker_flags) -o $(output) `
+        time_took := (lake.get_highres_clock() - start) / 1000000
+
+        if result.exit_code == 0 then
+            io.write(blue, tostring(output), reset, " ", time_took, "s\n")
+			io.write(result.stdout)
+        else
+            io.write(red, "compiling ", blue, tostring(output), red, " failed", reset, ":\n")
+			io.write(result.stdout, result.stderr)
+			error(red.."linker failed"..reset)
+        end
+    end
+end
+
+compiler_recipe := function(input, output)
+    return function()
+        dir := tostring(output):match("(.*)/")
+        lake.mkdir(dir, {make_parents = true})
+
+        start := lake.get_highres_clock()
+        result := ` $(compiler) -c $(compiler_flags) $(input) -o $(output) `
+        time_took := (lake.get_highres_clock() - start) / 1000000
+
+        if result.exit_code == 0 then
+            io.write(green, input, reset, " -> ", blue, output, reset, " ", time_took, "s\n")
+			io.write(result.stdout)
+        else
+            io.write(red, "compiling ", blue, output, red, " failed", reset, ":\n")
+			io.write(result.stdout, result.stderr)
+			-- error(red.."compiler failed"..reset)
+        end
+    end
+end
+
+dep_file_recipe := function(input, output)
+	if not input or not output then
+		error("nil input or output passed to dep_file_recipe()", 2)
+	end
+
+	return function()
+		dir := tostring(output):match("(.*)/")
+		lake.mkdir(dir, {make_parents = true})
+
+		result := ` clang++ $(input) $(compiler_flags) -MM -MG -MT $(lake.replace(output, "(.-)%.d", "%1.o")) `
+
+		if result.exit_code ~= 0 then
+			error("failed to create dep file '"..output.."':\n"..result.stdout..result.stderr)
+		end
+
+		result = lake.replace(result.stderr, "\\\n", "")
+		
+		out := ""
+
+		for file in result:gmatch("%S+") do
+			if file:sub(-1) ~= ":" then
+				out = out..file.."\n"
+			end
+		end
+
+		file := io.open(output, "w")
+
+		if not file then
+			error("failed to open dep file for writing: '"..output.."'")
+		end
+		
+		file:write(out)
+		file:close()
+	end
+end
+
+iro_o_files := {}
+
+lake.import "iro/lakemodule"
+{
+	mode = mode,
+	compiler_recipe = compiler_recipe,
+	dep_file_recipe = dep_file_recipe,
+
+	report_o_file = function(o)
+		print("iro/"..tostring(o))
+		table.insert(iro_o_files, lake.cwd().."/"..tostring(o))
+	end
+}
+
+lakeexe := nil
+
+lake.import "lake/lakemodule"
+{
+	mode = mode,
+	linker_recipe = linker_recipe,
+	compiler_recipe = compiler_recipe,
+	dep_file_recipe = dep_file_recipe,
+	iro_o_files = iro_o_files,
+
+	reportExecutable = function(exe)
+		lakeexe = "lake/"..tostring(exe)
+	end
+}
+
+if not lakeexe then
+	error("lake's lakemodule failed to report the location of its executable")
+end
+
+lake.action("clean", function()
+	
+end)

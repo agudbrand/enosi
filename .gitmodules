@@ -1,0 +1,6 @@
+[submodule "iro"]
+	path = iro
+	url = https://github.com/e-sushi/iro
+[submodule "lake"]
+	path = lake
+	url = https://github.com/e-sushi/lake
