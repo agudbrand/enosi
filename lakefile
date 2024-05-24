@@ -91,22 +91,35 @@ compiler_recipe := function(input, output)
     end
 end
 
-dep_file_recipe := function(input, output)
-	if not input or not output then
+dep_file_recipe := function(c_file, d_file, o_file)
+	if not c_file or not d_file or not o_file then
 		error("nil input or output passed to dep_file_recipe()", 2)
 	end
 
+	-- attempt to load the depfile that may already exist
+
+	file := io.open(d_file, "r")
+	lake.target(o_file):depends_on(d_file)
+
+	if file then
+		str := file:read("*a")
+
+		for file in str:gmatch("%S+") do
+			lake.target(o_file):depends_on(file)
+		end
+	end
+
 	return function()
-		dir := tostring(output):match("(.*)/")
+		dir := tostring(d_file):match("(.*)/")
 		lake.mkdir(dir, {make_parents = true})
 
-		result := ` clang++ $(input) $(compiler_flags) -MM -MG -MT $(lake.replace(output, "(.-)%.d", "%1.o")) `
-
+		result := ` clang++ $(c_file) $(compiler_flags) -MM -MG `
+	
 		if result.exit_code ~= 0 then
-			error("failed to create dep file '"..output.."':\n"..result.stdout..result.stderr)
+			error("failed to create dep file '"..d_file.."':\n"..result.stdout..result.stderr)
 		end
 
-		result = lake.replace(result.stderr, "\\\n", "")
+		result = lake.replace(result.stdout, "\\\n", "")
 		
 		out := ""
 
@@ -116,10 +129,10 @@ dep_file_recipe := function(input, output)
 			end
 		end
 
-		file := io.open(output, "w")
+		file := io.open(d_file, "w")
 
 		if not file then
-			error("failed to open dep file for writing: '"..output.."'")
+			error("failed to open dep file for writing: '"..d_file.."'")
 		end
 		
 		file:write(out)
@@ -136,8 +149,7 @@ lake.import "iro/lakemodule"
 	dep_file_recipe = dep_file_recipe,
 
 	report_o_file = function(o)
-		print("iro/"..tostring(o))
-		table.insert(iro_o_files, lake.cwd().."/"..tostring(o))
+		table.insert(iro_o_files, tostring(o))
 	end
 }
 
@@ -152,7 +164,7 @@ lake.import "lake/lakemodule"
 	iro_o_files = iro_o_files,
 
 	reportExecutable = function(exe)
-		lakeexe = "lake/"..tostring(exe)
+		lakeexe = tostring(exe)
 	end
 }
 
@@ -160,6 +172,4 @@ if not lakeexe then
 	error("lake's lakemodule failed to report the location of its executable")
 end
 
-lake.action("clean", function()
-	
-end)
+
