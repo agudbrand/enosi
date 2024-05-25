@@ -1,75 +1,59 @@
-mode ?= "debug"
+local mode = lake.clivars.mode or "debug"
+
+local List = require "list"
+local Twine = require "twine"
 
 lake.maxjobs(8)
 
--- override lua's assert to one that outputs a traceback.
-assert = function(cond, message)
-	if not cond then
-		message = message or "assertion failed!"
-		io.write(debug.traceback(), "\n", message, "\n")
-		os.exit(1)
-	end
-
-	return cond
-end
-
 lake.mkdir("bin")
 
-compiler := "clang++"
-linker := "clang++"
+local compiler = "clang++"
+local linker = "clang++"
 
-compiler_flags := 
-$[
-	
-	-std=c++20
-	-Iinclude
-	-Isrc
-	-I../iro
-	-Wno-switch
-	-fcolor-diagnostics
-	-fno-caret-diagnostics
-	-Wno-#warnings
-
-]
+local compiler_flags = Twine.new
+	"-std=c++20"
+	"-Iinclude"
+	"-Isrc"
+	"-I../iro"
+	"-Wno-switch"
+	"-fcolor-diagnostics"
+	"-fno-caret-diagnostics"
+	"-Wno-#warnings"
 
 if mode == "debug" then
-	compiler_flags ..= 
-	$[ 
-		-O0 
-		-ggdb3 
-		-DLAKE_DEBUG=1
-	]
+	compiler_flags
+		"-O0"
+		"-ggdb3"
+		"-DLAKE_DEBUG=1"
 else
-	compiler_flags ..= "-O2"
+	compiler_flags
+		"-O2"
 end
 
-linker_flags := 
-$[
-	
-	-Llib
-	-lluajit
-	-lexplain
-	-Wl,--export-dynamic
-]
+local linker_flags = Twine.new
+	"-Llib"
+	"-lluajit"
+	"-lexplain"
+	"-Wl,--export-dynamic"
 
-reset := "\027[0m"
-green := "\027[0;32m"
-blue  := "\027[0;34m"
-red   := "\027[0;31m"
+local reset = "\027[0m"
+local green = "\027[0;32m"
+local blue  = "\027[0;34m"
+local red   = "\027[0;31m"
 
-recipes := {}
+local recipes = {}
 
 recipes.linker = function(input, output)
 	assert(input and output, "recipes.linker passed a nil output or input")
 
     return function()
         -- make sure the output path exists
-        dir := tostring(output):match("(.*)/")
+        local dir = tostring(output):match("(.*)/")
         lake.mkdir(dir, {make_parents = true})
 
-        start := lake.get_highres_clock()
-        result := ` $(linker) $(input) $(linker_flags) -o $(output) `
-        time_took := (lake.get_highres_clock() - start) / 1000000
+        local start = lake.get_highres_clock()
+        local result = lake.cmd(linker, input, linker_flags, "-o", output)
+        local time_took = (lake.get_highres_clock() - start) / 1000000
 
         if result.exit_code == 0 then
             io.write(blue, tostring(output), reset, " ", time_took, "s\n")
@@ -77,21 +61,20 @@ recipes.linker = function(input, output)
         else
             io.write(red, "compiling ", blue, tostring(output), red, " failed", reset, ":\n")
 			io.write(result.stdout, result.stderr)
-			error(red.."linker failed"..reset)
         end
     end
 end
 
 recipes.compiler = function(input, output)
-	assert(input and output, "recipes.compiler pass a nil output or input")
+	assert(input and output, "recipes.compiler passed a nil output or input")
 
     return function()
-        dir := tostring(output):match("(.*)/")
+        local dir = tostring(output):match("(.*)/")
         lake.mkdir(dir, {make_parents = true})
 
-        start := lake.get_highres_clock()
-        result := ` $(compiler) -c $(compiler_flags) $(input) -o $(output) `
-        time_took := (lake.get_highres_clock() - start) / 1000000
+        local start = lake.get_highres_clock()
+        local result = lake.cmd(compiler, "-c", compiler_flags, input, "-o", output)
+        local time_took = (lake.get_highres_clock() - start) / 1000000
 
         if result.exit_code == 0 then
             io.write(green, input, reset, " -> ", blue, output, reset, " ", time_took, "s\n")
@@ -99,7 +82,6 @@ recipes.compiler = function(input, output)
         else
             io.write(red, "compiling ", blue, output, red, " failed", reset, ":\n")
 			io.write(result.stdout, result.stderr)
-			-- error(red.."compiler failed"..reset)
         end
     end
 end
@@ -108,53 +90,54 @@ recipes.depfile = function(c_file, d_file, o_file)
 	assert(c_file and d_file and o_file, "recipes.depfile passed a nil file")
 
 	-- attempt to load the depfile that may already exist
-	file := io.open(d_file, "r")
+	local file = io.open(d_file, "r")
 	lake.target(o_file):depends_on(d_file)
 
 	if file then
-		str := file:read("*a")
-
+		local str = file:read("*a")
 		for file in str:gmatch("%S+") do
 			lake.target(o_file):depends_on(file)
 		end
 	end
 
 	return function()
-		dir := tostring(d_file):match("(.*)/")
+		local dir = tostring(d_file):match("(.*)/")
 		lake.mkdir(dir, {make_parents = true})
 
-		result := ` clang++ $(c_file) $(compiler_flags) -MM -MG `
-	
+		local result = lake.cmd("clang++", c_file, compiler_flags, "-MM", "-MG")
+
 		if result.exit_code ~= 0 then
 			error("failed to create dep file '"..d_file.."':\n"..result.stdout..result.stderr)
 		end
 
 		result = lake.replace(result.stdout, "\\\n", "")
-		
-		out := ""
+
+		local out = ""
 
 		for file in result:gmatch("%S+") do
 			if file:sub(-1) ~= ":" then
-				out = out..file.."\n"
+				local canonical = lake.canonicalizePath(file)
+				if not canonical then
+					error("failed to canonicalize depfile path '"..file.."'! The file might not exist so I'll probably see this message when I'm working with generated files and so should try and handle this better then")
+				end
+				out = out..canonical.."\n"
 			end
 		end
 
-		file := io.open(d_file, "w")
+		local file = io.open(d_file, "w")
 
 		if not file then
 			error("failed to open dep file for writing: '"..d_file.."'")
 		end
-		
+
 		file:write(out)
 		file:close()
 	end
 end
 
--- collection of functions for reporting various kinds of outputs
-report := {}
-
--- where those reports are stored, per project, per type of output
-reports := {}
+-- reports of different kinds of output files organized by project then type
+-- eg. reports.iro.objFiles
+local reports = {}
 
 -- initialize a report object for 'projname'. 
 -- this is passed to a lakemodule to enable them reporting different
@@ -162,15 +145,15 @@ reports := {}
 -- a project is expected to report a string containing the absolute 
 -- path of the output object. 
 -- the build FAILS if a given path is not absolute.
-initReportObject := function(projname)
-	initReportProjAndType := function(projname, type)
+local initReportObject = function(projname)
+	local initReportProjAndType = function(projname, type)
 		reports[projname] = reports[projname] or {}
 		reports[projname][type] = reports[projname][type] or {}
 		return reports[projname][type]
 	end
 
-	createReportFunction := function(projname, objtype)
-		tbl := initReportProjAndType(projname, objtype)
+	local createReportFunction = function(projname, objtype)
+		local tbl = initReportProjAndType(projname, objtype)
 		return function(output)
 			assert(type(output) == "string", "reported output is not a string")
 			assert(output:sub(1,1) == "/", "reported output is not an absolute path")
@@ -185,7 +168,7 @@ initReportObject := function(projname)
 	}
 end
 
-import := function(projname)
+local import = function(projname)
 	lake.import(projname.."/lakemodule", 
 	{
 		mode = mode,

@@ -4,3 +4,6 @@
 [submodule "lake"]
 	path = lake
 	url = https://github.com/e-sushi/lake
+[submodule "LuaJIT"]
+	path = LuaJIT
+	url = https://github.com/LuaJIT/LuaJIT
