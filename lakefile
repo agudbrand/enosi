@@ -2,6 +2,17 @@ mode ?= "debug"
 
 lake.maxjobs(8)
 
+-- override lua's assert to one that outputs a traceback.
+assert = function(cond, message)
+	if not cond then
+		message = message or "assertion failed!"
+		io.write(debug.traceback(), "\n", message, "\n")
+		os.exit(1)
+	end
+
+	return cond
+end
+
 lake.mkdir("bin")
 
 compiler := "clang++"
@@ -46,10 +57,10 @@ green := "\027[0;32m"
 blue  := "\027[0;34m"
 red   := "\027[0;31m"
 
-linker_recipe := function(input, output)
-	if output == nil or input == nil then
-		error("linker_recipe passed a nil input or output", 2)
-	end
+recipes := {}
+
+recipes.linker = function(input, output)
+	assert(input and output, "recipes.linker passed a nil output or input")
 
     return function()
         -- make sure the output path exists
@@ -71,7 +82,9 @@ linker_recipe := function(input, output)
     end
 end
 
-compiler_recipe := function(input, output)
+recipes.compiler = function(input, output)
+	assert(input and output, "recipes.compiler pass a nil output or input")
+
     return function()
         dir := tostring(output):match("(.*)/")
         lake.mkdir(dir, {make_parents = true})
@@ -91,13 +104,10 @@ compiler_recipe := function(input, output)
     end
 end
 
-dep_file_recipe := function(c_file, d_file, o_file)
-	if not c_file or not d_file or not o_file then
-		error("nil input or output passed to dep_file_recipe()", 2)
-	end
+recipes.depfile = function(c_file, d_file, o_file)
+	assert(c_file and d_file and o_file, "recipes.depfile passed a nil file")
 
 	-- attempt to load the depfile that may already exist
-
 	file := io.open(d_file, "r")
 	lake.target(o_file):depends_on(d_file)
 
@@ -140,36 +150,53 @@ dep_file_recipe := function(c_file, d_file, o_file)
 	end
 end
 
-iro_o_files := {}
+-- collection of functions for reporting various kinds of outputs
+report := {}
 
-lake.import "iro/lakemodule"
-{
-	mode = mode,
-	compiler_recipe = compiler_recipe,
-	dep_file_recipe = dep_file_recipe,
+-- where those reports are stored, per project, per type of output
+reports := {}
 
-	report_o_file = function(o)
-		table.insert(iro_o_files, tostring(o))
+-- initialize a report object for 'projname'. 
+-- this is passed to a lakemodule to enable them reporting different
+-- kinds of outputs other projects may want to use.
+-- a project is expected to report a string containing the absolute 
+-- path of the output object. 
+-- the build FAILS if a given path is not absolute.
+initReportObject := function(projname)
+	initReportProjAndType := function(projname, type)
+		reports[projname] = reports[projname] or {}
+		reports[projname][type] = reports[projname][type] or {}
+		return reports[projname][type]
 	end
-}
 
-lakeexe := nil
+	createReportFunction := function(projname, objtype)
+		tbl := initReportProjAndType(projname, objtype)
+		return function(output)
+			assert(type(output) == "string", "reported output is not a string")
+			assert(output:sub(1,1) == "/", "reported output is not an absolute path")
+			table.insert(tbl, output)
+		end
+	end  
 
-lake.import "lake/lakemodule"
-{
-	mode = mode,
-	linker_recipe = linker_recipe,
-	compiler_recipe = compiler_recipe,
-	dep_file_recipe = dep_file_recipe,
-	iro_o_files = iro_o_files,
-
-	reportExecutable = function(exe)
-		lakeexe = tostring(exe)
-	end
-}
-
-if not lakeexe then
-	error("lake's lakemodule failed to report the location of its executable")
+	return 
+	{
+		objFile = createReportFunction(projname, "objFiles"),
+		executable = createReportFunction(projname, "executables"),
+	}
 end
 
+import := function(projname)
+	lake.import(projname.."/lakemodule", 
+	{
+		mode = mode,
+		recipes = recipes,
+		report = initReportObject(projname),
+		reports = reports,
+	})
+end
+
+import "iro"
+import "lake"
+
+assert(reports.lake.executables[1], "lake's lakemodule did not report an executable")
 
