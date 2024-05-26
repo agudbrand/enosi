@@ -1,3 +1,7 @@
+# Nix flake that should setup a complete environment for building all of these projects.
+# This is not required, and can just serve as a guide for what env is needed to build
+# everything.
+
 {	
 	inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
@@ -22,14 +26,19 @@
 					acl
 					valgrind
 					rr
-					
-					# NOTE(sushi) this is here because there's some dumb bug with 
-					# (hiPrio clang-tools.override 
-					# {
-					#	llvmPackages = llvmPackages_17;
-					#	enableLibcxx = false;
-					# })
+
+					# stuff needed to build llvm
+					cmake
+					ninja
+					gcc
+					mold
+					stdenv.cc.cc.lib
 				];
+
+				shellHook = ''
+					PATH=$PATH:~/enosi/bin
+					export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib"
+				'';
 			};
 		};
 			
