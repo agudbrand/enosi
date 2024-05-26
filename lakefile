@@ -180,6 +180,7 @@ end
 
 import "iro"
 import "lake"
+import "lpp"
 
 assert(reports.lake.executables[1], "lake's lakemodule did not report an executable")
 

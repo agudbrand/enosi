@@ -7,3 +7,6 @@
 [submodule "LuaJIT"]
 	path = LuaJIT
 	url = https://github.com/LuaJIT/LuaJIT
+[submodule "lpp"]
+	path = lpp
+	url = https://github.com/e-sushi/lpp
