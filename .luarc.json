@@ -1,0 +1,4 @@
+{
+	"runtime.version": "luajit",
+	"workspace.library": [ "lake/src/lakedef.lua" ]
+}
