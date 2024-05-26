@@ -2,3 +2,7 @@
 
 
 .cache/
+
+llvm/build/
+
+compile_commands.json
