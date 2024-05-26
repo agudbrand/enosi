@@ -6,3 +6,7 @@
 llvm/build/
 
 compile_commands.json
+
+luajit/lib/
+
+luajit/include/

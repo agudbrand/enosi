@@ -5,7 +5,7 @@
 	path = lake
 	url = https://github.com/e-sushi/lake
 [submodule "LuaJIT"]
-	path = LuaJIT
+	path = luajit/src
 	url = https://github.com/LuaJIT/LuaJIT
 [submodule "lpp"]
 	path = lpp
