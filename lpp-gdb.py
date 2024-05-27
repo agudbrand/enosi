@@ -35,7 +35,7 @@ class Path_printer:
 
     def to_string(self):
         val = self.val
-        evalstr = f"(*({val['buffer'].type}*){val['buffer'].address}).asStr()"
+        evalstr = f"(({val['buffer'].type}*)({val['buffer'].address}))->asStr()"
         s = gdb.parse_and_eval(evalstr)
         return s
 pp.add_printer("Path", r"^iro::fs::Path$", Path_printer)

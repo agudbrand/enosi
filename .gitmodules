@@ -10,3 +10,6 @@
 [submodule "lpp"]
 	path = lpp
 	url = https://github.com/e-sushi/lpp
+[submodule "lppclang"]
+	path = lppclang
+	url = https://github.com/e-sushi/lppclang

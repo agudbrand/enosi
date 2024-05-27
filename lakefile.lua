@@ -3,7 +3,7 @@ local mode = lake.clivars.mode or "debug"
 local List = require "list"
 local Twine = require "twine"
 
-lake.maxjobs(8)
+lake.setMaxJobs(8)
 
 lake.mkdir("bin")
 
@@ -33,7 +33,7 @@ else
 end
 
 local linker_flags = Twine.new
-	"-Llib"
+	"-L../luajit/lib"
 	"-lluajit"
 	"-lexplain"
 	"-Wl,--export-dynamic"
@@ -63,16 +63,23 @@ recipes.linker = function(input, output)
         local dir = tostring(output):match("(.*)/")
         lake.mkdir(dir, {make_parents = true})
 
+		local cmdoutput = ""
+
         local start = lake.getMonotonicClock()
-        local result = lake.cmd(linker, input, linker_flags, "-o", output)
+        local result = lake.cmd({ linker, input, linker_flags, "-o", output },
+		{
+			onStdout = function(s) cmdoutput = cmdoutput..s end,
+			onStderr = function(s) cmdoutput = cmdoutput..s end,
+		})
+
         local time_took = (lake.getMonotonicClock() - start) / 1000000
 
-        if result.exit_code == 0 then
+        if result == 0 then
             io.write(blue, tostring(output), reset, " ", time_took, "s\n")
-			io.write(result.stdout)
+			io.write(cmdoutput)
         else
             io.write(red, "compiling ", blue, tostring(output), red, " failed", reset, ":\n")
-			io.write(result.stdout, result.stderr)
+			io.write(cmdoutput)
         end
     end
 end
@@ -84,16 +91,22 @@ recipes.compiler = function(input, output, flags)
         local dir = tostring(output):match("(.*)/")
         lake.mkdir(dir, {make_parents = true})
 
+		local cmdoutput = ""
+
         local start = lake.getMonotonicClock()
-        local result = lake.cmd(compiler, "-c", compiler_flags, input, "-o", output)
+        local result = lake.cmd({ compiler, "-c", compiler_flags, input, "-o", output },
+		{
+			onStdout = function(s) cmdoutput = cmdoutput..s end,
+			onStderr = function(s) cmdoutput = cmdoutput..s end,
+		})
         local time_took = (lake.getMonotonicClock() - start) / 1000000
 
-        if result.exit_code == 0 then
+        if result == 0 then
             io.write(green, input, reset, " -> ", blue, output, reset, " ", time_took, "s\n")
-			io.write(result.stdout)
+			io.write(cmdoutput)
         else
             io.write(red, "compiling ", blue, output, red, " failed", reset, ":\n")
-			io.write(result.stdout, result.stderr)
+			io.write(cmdoutput)
         end
     end
 end
@@ -116,13 +129,19 @@ recipes.depfile = function(c_file, d_file, o_file)
 		local dir = tostring(d_file):match("(.*)/")
 		lake.mkdir(dir, {make_parents = true})
 
-		local result = lake.cmd("clang++", c_file, compiler_flags, "-MM", "-MG")
+		local cmdoutput = ""
 
-		if result.exit_code ~= 0 then
-			error("failed to create dep file '"..d_file.."':\n"..result.stdout..result.stderr)
+		local result = lake.cmd({ "clang++", c_file, compiler_flags, "-MM", "-MG" },
+		{
+			onStdout = function(s) cmdoutput = cmdoutput..s end,
+			onStderr = function(s) cmdoutput = cmdoutput..s end,
+		})
+
+		if result ~= 0 then
+			error("failed to create dep file '"..d_file.."':\n"..cmdoutput)
 		end
 
-		local result = assert(lake.replace(result.stdout, "\\\n", ""))
+		local result = assert(lake.replace(cmdoutput, "\\\n", ""))
 
 		local out = ""
 
@@ -236,7 +255,8 @@ local import = function(projname)
 		registerCleaner = initCleanReportFunction(projname),
 		assertImported = function(name)
 			assert(imported_modules[projname], "project '"..projname.."' requires '"..name.."' to have been imported before it!")
-		end
+		end,
+		force_clean = true,
 	})
 
 	if not cleaners[projname] then
@@ -252,3 +272,32 @@ import "lpp"
 assert(reports.lake.executables[1], "lake's lakemodule did not report an executable")
 assert(reports.lpp.executables[1], "lpp's lakemodule did not report an executable")
 
+-- clean build files of internal projects only, eg. not luajit and certainly not llvm
+lake.action("clean", function()
+	List{"lpp", "iro", "lake"}:each(function(projname)
+		local cleaner = cleaners[projname]
+		if cleaner then
+			local cwd = lake.cwd()
+			lake.chdir(cleaner[1])
+			cleaner[2]()
+			lake.chdir(cwd)
+		end
+	end)
+end)
+
+-- clean build files of internal and external projects, excluding llvm
+lake.action("clean-all", function()
+	List{"lpp", "iro", "lake", "luajit"}:each(function(projname)
+		local cleaner = cleaners[projname]
+		if cleaner then
+			local cwd = lake.cwd()
+			lake.chdir(cleaner[1])
+			cleaner[2]()
+			lake.chdir(cwd)
+		end
+	end)
+end)
+
+lake.action("clean-llvm", function()
+
+end)

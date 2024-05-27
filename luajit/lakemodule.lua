@@ -37,9 +37,18 @@ lake.target(libdir..lib)
 	:recipe(function()
 		local start = lake.getMonotonicClock()
 		lake.chdir("src")
-		local result = lake.cmd("make") -- TODO(sushi) add a way to get the max jobs setting so it can be passed here
-		if result.exit_code ~= 0 then
-			io.write(red, "making luajit failed: ", reset, result.stdout, result.stderr, "\n")
+		local result = lake.cmd( { "make", "-j"..tostring(lake.getMaxJobs()) },
+		{
+			onStdout = function(s)
+				io.write(s)
+			end,
+
+			onStderr = function(s)
+				io.write(s)
+			end
+		}) -- TODO(sushi) add a way to get the max jobs setting so it can be passed here
+		if result ~= 0 then
+			io.write(red, "making luajit failed: ", reset, "\n")
 			error("luajit failed")
 		end
 		lake.chdir("..")
@@ -62,10 +71,19 @@ lake.targets(copied_includes)
 
 options.registerCleaner(function()
 	lake.chdir("src")
-	lake.cmd("make", "clean")
+	lake.cmd({"make", "clean"},
+	{
+		onStdout = function(s)
+			io.write(s)
+		end,
+
+		onStderr = function(s)
+			io.write(s)
+		end
+	})
 	lake.chdir("..")
 	copied_includes:each(function(e)
-		lake.unlink(e)
+		lake.rm(e)
 	end)
-	lake.unlink(libdir..lib)
+	lake.rm(libdir..lib)
 end)
