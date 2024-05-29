@@ -36,22 +36,19 @@ lake.target(libdir..lib)
 	:dependsOn(luajit_makefiles)
 	:recipe(function()
 		local start = lake.getMonotonicClock()
-		lake.chdir("src")
-		local result = lake.cmd( { "make", "-j"..tostring(lake.getMaxJobs()) },
-		{
-			onStdout = function(s)
-				io.write(s)
-			end,
-
-			onStderr = function(s)
-				io.write(s)
-			end
-		}) -- TODO(sushi) add a way to get the max jobs setting so it can be passed here
+		lake.chdir "src"
+		lake.cmd { "make", "clean" }
+		local result = lake.cmd(
+			{ "make", "-j"..tostring(lake.getMaxJobs()) },
+			{
+				onStdout = io.write,
+				onStderr = io.write,
+			})
 		if result ~= 0 then
-			io.write(red, "making luajit failed: ", reset, "\n")
+			io.write(red, "making luajit failed", reset, "\n")
 			error("luajit failed")
 		end
-		lake.chdir("..")
+		lake.chdir ".."
 		lake.copy(libdir..lib, "src/src/"..lib)
 		local time_took = (lake.getMonotonicClock() - start) / 1000000
 		io.write(blue, libdir..lib, reset, " ", time_took, "\n")
@@ -71,16 +68,12 @@ lake.targets(copied_includes)
 
 options.registerCleaner(function()
 	lake.chdir("src")
-	lake.cmd({"make", "clean"},
-	{
-		onStdout = function(s)
-			io.write(s)
-		end,
-
-		onStderr = function(s)
-			io.write(s)
-		end
-	})
+	lake.cmd(
+		{"make", "clean"},
+		{
+			onStdout = io.write,
+			onStderr = io.write,
+		})
 	lake.chdir("..")
 	copied_includes:each(function(e)
 		lake.rm(e)

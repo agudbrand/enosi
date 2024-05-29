@@ -27,6 +27,8 @@
 					valgrind
 					rr
 
+					notcurses
+
 					# stuff needed to build llvm
 					cmake
 					ninja
