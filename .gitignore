@@ -3,7 +3,6 @@
 
 .cache/
 
-llvm/build/
 
 compile_commands.json
 
@@ -12,3 +11,7 @@ luajit/lib/
 luajit/include/
 
 temp/
+
+llvm/src
+
+llvm/build/

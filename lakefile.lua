@@ -32,7 +32,6 @@ end
 
 local linker_flags = Twine.new
 	"-lexplain"
-	"-Wl,--export-dynamic"
 
 local reset = "\027[0m"
 local green = "\027[0;32m"

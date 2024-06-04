@@ -16,6 +16,7 @@
 				buildInputs = with pkgs;
 				[
 					luajit
+					(callPackage ./impure-clang.nix {})
 					clang-tools
 					llvmPackages_17.libcxxClang
 					gnumake
@@ -26,20 +27,21 @@
 					acl
 					valgrind
 					rr
+					mold
 
 					notcurses
 
 					# stuff needed to build llvm
 					cmake
 					ninja
-					gcc
-					mold
+					# gcc
+					lld
 					stdenv.cc.cc.lib
 				];
 
 				shellHook = ''
 					PATH=$PATH:~/enosi/bin
-					export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib"
+					export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.explain.out}/lib
 				'';
 			};
 		};

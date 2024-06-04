@@ -7,7 +7,7 @@ class lake(gdb.Command):
 
     def invoke(self, arg, tty):
         try:
-            gdb.execute(f"shell ./lake {arg}", from_tty=True)
+            gdb.execute(f"shell ./bin/lake {arg}", from_tty=True)
         except Exception as e:
             print(f"{self.__class__.__name__} error: {e}")
 lake()
