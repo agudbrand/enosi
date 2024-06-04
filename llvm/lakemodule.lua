@@ -1,5 +1,7 @@
 local options = assert(lake.getOptions())
 
+lake.mkdir "build"
+
 local List = require "list"
 local Twine = require "twine"
 
@@ -20,23 +22,15 @@ local libs = Twine.new
 	"clangAnalysisFlowSensitive"
 	"clangAnalysisFlowSensitiveModels"
 	"clangAPINotes"
-	"clangApplyReplacements"
 	"clangARCMigrate"
 	"clangAST"
 	"clangASTMatchers"
 	"clangBasic"
-	"clangChangeNamespace"
 	"clangCodeGen"
 	"clangCrossTU"
-	"clangDaemon"
-	"clangDaemonTweaks"
 	"clangDependencyScanning"
 	"clangDirectoryWatcher"
-	"clangdMain"
-	"clangDoc"
-	"clangdRemoteIndex"
 	"clangDriver"
-	"clangdSupport"
 	"clangDynamicASTMatchers"
 	"clangEdit"
 	"clangExtractAPI"
@@ -45,22 +39,12 @@ local libs = Twine.new
 	"clangFrontendTool"
 	"clangHandleCXX"
 	"clangHandleLLVM"
-	"clangIncludeCleaner"
-	"clangIncludeFixer"
-	"clangIncludeFixerPlugin"
 	"clangIndex"
 	"clangIndexSerialization"
 	"clangInstallAPI"
 	"clangInterpreter"
 	"clangLex"
-	"clangMove"
 	"clangParse"
-	"clangPseudo"
-	"clangPseudoCLI"
-	"clangPseudoCXX"
-	"clangPseudoGrammar"
-	"clangQuery"
-	"clangReorderFields"
 	"clangRewrite"
 	"clangRewriteFrontend"
 	"clangSema"
@@ -69,34 +53,6 @@ local libs = Twine.new
 	"clangStaticAnalyzerCore"
 	"clangStaticAnalyzerFrontend"
 	"clangSupport"
-	"clangTidy"
-	"clangTidyAbseilModule"
-	"clangTidyAlteraModule"
-	"clangTidyAndroidModule"
-	"clangTidyBoostModule"
-	"clangTidyBugproneModule"
-	"clangTidyCERTModule"
-	"clangTidyConcurrencyModule"
-	"clangTidyCppCoreGuidelinesModule"
-	"clangTidyDarwinModule"
-	"clangTidyFuchsiaModule"
-	"clangTidyGoogleModule"
-	"clangTidyHICPPModule"
-	"clangTidyLinuxKernelModule"
-	"clangTidyLLVMLibcModule"
-	"clangTidyLLVMModule"
-	"clangTidyMain"
-	"clangTidyMiscModule"
-	"clangTidyModernizeModule"
-	"clangTidyMPIModule"
-	"clangTidyObjCModule"
-	"clangTidyOpenMPModule"
-	"clangTidyPerformanceModule"
-	"clangTidyPlugin"
-	"clangTidyPortabilityModule"
-	"clangTidyReadabilityModule"
-	"clangTidyUtils"
-	"clangTidyZirconModule"
 	"clangTooling"
 	"clangToolingASTDiff"
 	"clangToolingCore"
@@ -105,8 +61,6 @@ local libs = Twine.new
 	"clangToolingRefactoring"
 	"clangToolingSyntax"
 	"clangTransformer"
-	"DynamicLibraryLib"
-	"findAllSymbols"
 	"LLVMAArch64AsmParser"
 	"LLVMAArch64CodeGen"
 	"LLVMAArch64Desc"
@@ -306,7 +260,6 @@ local cwd = lake.cwd()
 
 local libdir = cwd.."/build/lib/"
 
-
 report.includeDir(cwd.."/src/clang/include")
 report.includeDir(cwd.."/src/llvm/include")
 report.includeDir(cwd.."/build/include")
@@ -324,18 +277,18 @@ local blue  = "\027[0;34m"
 local red   = "\027[0;31m"
 
 lake.targets(libsfull)
-	-- no dependencies as I don't intend to ever modify anything in llvm for the moment
+	-- :dependsOn("build/CMakeCache.txt")
 	:recipe(function()
 		lake.chdir "build"
 
 		local result = lake.cmd(
 			{ "cmake", "-G", "Ninja", "../src/llvm",
-				[[ -DLLVM_ENABLE_PROJECTS="clang" ]],
-				[[ -DCMAKE_BUILD_TYPE="Release"   ]],
-				[[ -DLLVM_USE_LINKER=mold         ]],
-				[[ -DLLVM_PARALLEL_COMPILE_JOBS=]]..lake.getMaxJobs(),
-				[[ -DLLVM_PARALLEL_LINK_JOBS=]]..lake.getMaxJobs(),
-				[[ -DLLVM_PARALLEL_TABLEGEN_JOBS=]]..lake.getMaxJobs()},
+				"-DLLVM_ENABLE_PROJECTS=clang",
+				"-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+				"-DLLVM_USE_LINKER=lld",
+				"-DLLVM_PARALLEL_COMPILE_JOBS="..lake.getMaxJobs(),
+				"-DLLVM_PARALLEL_LINK_JOBS="..lake.getMaxJobs(),
+				"-DLLVM_PARALLEL_TABLEGEN_JOBS="..lake.getMaxJobs()},
 			{
 				onStdout = io.write,
 				onStderr = io.write,
@@ -346,12 +299,7 @@ lake.targets(libsfull)
 			return
 		end
 
-		result = lake.cmd(
-			{ "cmake", "--build", "." },
-			{
-				onStdout = io.write,
-				onStderr = io.write,
-			})
+		result = lake.cmd({ "cmake", "--build", "." }, { onStdout = io.write, onStderr = io.write, })
 
 		if result ~= 0 then
 			io.write(red, "building llvm failed", reset, "\n")
