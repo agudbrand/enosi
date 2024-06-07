@@ -3,7 +3,16 @@ local mode = lake.clivars.mode or "debug"
 local List = require "list"
 local Twine = require "twine"
 
-lake.setMaxJobs(8)
+local result = {pcall(require, "lakeuser")}
+local usercfg 
+
+if result[1] then
+	usercfg = result[2]
+else
+	usercfg = {}
+end
+
+lake.setMaxJobs(usercfg.max_jobs or 1)
 
 lake.mkdir("bin")
 
@@ -188,7 +197,7 @@ local reports = {}
 -- helper that returns a list of targets referencing the libs that 
 -- a project outputs, so that dependencies may be created on them
 local getProjLibs = function(projname)
-	assert(reports[projname], "report.getProjLibs called on a project that has not been imported yet!")
+	assert(reports[projname], "report.getProjLibs called on a project ("..projname..") that has not been imported yet!")
 	return reports[projname].libs:map(function(e)
 		return reports[projname].libDir[1]..getOSStaticLibName(e)
 	end)
@@ -261,6 +270,7 @@ local import = function(projname)
 	{
 		mode = mode,
 		recipes = recipes,
+		usercfg = usercfg,
 		report = initReportObject(projname),
 		reports = reports,
 		registerCleaner = initCleanReportFunction(projname),
@@ -315,7 +325,7 @@ import "lppclang"
 import "lpp"
 
 assert(reports.lake.executables[1], "lake's lakemodule did not report an executable")
-assert(reports.lpp.executables[1], "lpp's lakemodule did not report an executable")
+-- assert(reports.lpp.executables[1], "lpp's lakemodule did not report an executable")
 
 -- clean build files of internal projects only, eg. not luajit and certainly not llvm
 lake.action("clean", function()

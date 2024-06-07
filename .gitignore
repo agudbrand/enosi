@@ -13,5 +13,3 @@ luajit/include/
 temp/
 
 llvm/src
-
-llvm/build/
