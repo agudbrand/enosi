@@ -276,19 +276,31 @@ local green = "\027[0;32m"
 local blue  = "\027[0;34m"
 local red   = "\027[0;31m"
 
+local usercfg = options.usercfg
+usercfg.llvm = usercfg.llvm or {}
+
 lake.targets(libsfull)
 	-- :dependsOn("build/CMakeCache.txt")
 	:recipe(function()
+		lake.mkdir "build"
 		lake.chdir "build"
 
+		local args = List.new
+		{
+			"-DLLVM_ENABLE_PROJECTS=clang",
+			"-DCMAKE_BUILD_TYPE="..(usercfg.llvm.mode or "Release"),
+			"-DLLVM_USE_LINKER="..(usercfg.llvm.linker or "lld"),
+			"-DLLVM_PARALLEL_COMPILE_JOBS="..(usercfg.llvm.max_compile_jobs or lake.getMaxJobs()),
+			"-DLLVM_PARALLEL_LINK_JOBS="..(usercfg.llvm.max_link_jobs or lake.getMaxJobs()),
+			"-DLLVM_PARALLEL_TABLEGEN_JOBS="..(usercfg.llvm.max_tablegen_jobs or lake.getMaxJobs())
+		}
+
+		if usercfg.llvm.shared then
+			args:push "-DBUILD_SHARED_LIBS=OFF"
+		end
+
 		local result = lake.cmd(
-			{ "cmake", "-G", "Ninja", "../src/llvm",
-				"-DLLVM_ENABLE_PROJECTS=clang",
-				"-DCMAKE_BUILD_TYPE=RelWithDebInfo",
-				"-DLLVM_USE_LINKER=lld",
-				"-DLLVM_PARALLEL_COMPILE_JOBS="..lake.getMaxJobs(),
-				"-DLLVM_PARALLEL_LINK_JOBS="..lake.getMaxJobs(),
-				"-DLLVM_PARALLEL_TABLEGEN_JOBS="..lake.getMaxJobs()},
+			{ "cmake", "-G", "Ninja", "../src/llvm", args },
 			{
 				onStdout = io.write,
 				onStderr = io.write,
