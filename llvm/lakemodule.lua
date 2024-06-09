@@ -284,6 +284,20 @@ lake.targets(libsfull)
 	:recipe(function()
 		lake.mkdir "build"
 		lake.chdir "build"
+	
+		local result = lake.cmd({ "cmake", "--build", "." }, { onStdout = io.write, onStderr = io.write, })
+
+		if result ~= 0 then
+			io.write(red, "building llvm failed", reset, "\n")
+		end
+
+		lake.chdir ".."
+	end)
+
+lake.target("build/CMakeCache.txt")
+	:recipe(function()
+		lake.mkdir "build"
+		lake.chdir "build"
 
 		local args = List.new
 		{
@@ -311,11 +325,6 @@ lake.targets(libsfull)
 			return
 		end
 
-		result = lake.cmd({ "cmake", "--build", "." }, { onStdout = io.write, onStderr = io.write, })
-
-		if result ~= 0 then
-			io.write(red, "building llvm failed", reset, "\n")
-		end
-
 		lake.chdir ".."
+
 	end)
