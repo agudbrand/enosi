@@ -14,3 +14,5 @@ luajit/include/
 temp/
 
 llvm/src
+
+lakeuser.lua
