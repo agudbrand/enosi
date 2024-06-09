@@ -8,9 +8,9 @@ if (builtins.pathExists ./llvm/binlinks) then
 			mkdir -p $out/bin
 			for bin in ${toString (builtins.attrNames (builtins.readDir ./llvm/binlinks))}; do
 				cat > $out/bin/$bin << EOF
-	#!${runtimeShell}
-	exec "${toString ./.}/llvm/binlinks/$bin" "\$@"
-	EOF
+#!${runtimeShell}
+exec "${toString ./.}/llvm/binlinks/$bin" "\$@"
+EOF
 				chmod +x $out/bin/$bin
 			done
 		'';
