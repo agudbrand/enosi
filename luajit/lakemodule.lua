@@ -7,6 +7,9 @@ local report = assert(options.report)
 local libdir = lake.cwd().."/lib/"
 local includedir = lake.cwd().."/include/"
 
+lake.mkdir(libdir)
+lake.mkdir(includedir)
+
 local lib
 
 local os = lake.os()
