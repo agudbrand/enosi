@@ -307,7 +307,8 @@ local import = function(projname)
 				out:push("-L"..reports[name].libDir[1])
 			end)
 			return out
-		end
+		end,
+		this_file = cwd.."/"..projname.."/lakemodule.lua"
 	})
 
 	if not cleaners[projname] then

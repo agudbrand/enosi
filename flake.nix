@@ -28,6 +28,7 @@
 					valgrind
 					rr
 					mold
+					lua-language-server
 
 					notcurses
 
@@ -45,5 +46,4 @@
 				'';
 			};
 		};
-			
 }
