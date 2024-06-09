@@ -1,6 +1,5 @@
 local options = assert(lake.getOptions())
 
-lake.mkdir "build"
 
 local List = require "list"
 local Twine = require "twine"
@@ -258,51 +257,57 @@ local libs = Twine.new
 
 local cwd = lake.cwd()
 
-local libdir = cwd.."/build/lib/"
+local usercfg = options.usercfg
+usercfg.llvm = usercfg.llvm or {}
+
+local mode = usercfg.llvm.mode or "Release"
+
+local builddir = cwd.."/build/"..mode
+
+lake.mkdir(builddir, {make_parents = true})
+
+local libdir = builddir.."/lib"
+report.libDir(libdir)
+
+local libsfull = libs:map(function(l) return libdir.."/"..options.getOSStaticLibName(l) end)
 
 report.includeDir(cwd.."/src/clang/include")
 report.includeDir(cwd.."/src/llvm/include")
-report.includeDir(cwd.."/build/include")
-report.includeDir(cwd.."/build/tools/clang/include")
+report.includeDir(builddir.."/include")
+report.includeDir(builddir.."/tools/clang/include")
 
-report.libDir(libdir)
 libs:each(report.lib)
-
-local libsfull = List()
-libs:each(function(lib) libsfull:push(libdir..options.getOSStaticLibName(lib)) end)
 
 local reset = "\027[0m"
 local green = "\027[0;32m"
 local blue  = "\027[0;34m"
 local red   = "\027[0;31m"
 
-local usercfg = options.usercfg
-usercfg.llvm = usercfg.llvm or {}
+local CMakeCache = lake.target(builddir.."/CMakeCache.txt")
 
-lake.targets(libsfull)
-	-- :dependsOn("build/CMakeCache.txt")
+reports.llvm.libsTarget = lake.targets(libsfull)
+	:dependsOn(CMakeCache)
 	:recipe(function()
-		lake.mkdir "build"
-		lake.chdir "build"
-	
+		lake.chdir(builddir)
+
 		local result = lake.cmd({ "cmake", "--build", "." }, { onStdout = io.write, onStderr = io.write, })
 
 		if result ~= 0 then
 			io.write(red, "building llvm failed", reset, "\n")
 		end
 
-		lake.chdir ".."
+		lake.chdir(cwd)
 	end)
 
-lake.target("build/CMakeCache.txt")
+CMakeCache
+	:dependsOn(options.this_file)
 	:recipe(function()
-		lake.mkdir "build"
-		lake.chdir "build"
+		lake.chdir(builddir)
 
 		local args = List.new
 		{
 			"-DLLVM_ENABLE_PROJECTS=clang",
-			"-DCMAKE_BUILD_TYPE="..(usercfg.llvm.mode or "Release"),
+			"-DCMAKE_BUILD_TYPE="..mode,
 			"-DLLVM_USE_LINKER="..(usercfg.llvm.linker or "lld"),
 			"-DLLVM_PARALLEL_COMPILE_JOBS="..(usercfg.llvm.max_compile_jobs or lake.getMaxJobs()),
 			"-DLLVM_PARALLEL_LINK_JOBS="..(usercfg.llvm.max_link_jobs or lake.getMaxJobs()),
@@ -314,7 +319,7 @@ lake.target("build/CMakeCache.txt")
 		end
 
 		local result = lake.cmd(
-			{ "cmake", "-G", "Ninja", "../src/llvm", args },
+			{ "cmake", "-G", "Ninja", cwd.."/src/llvm", args },
 			{
 				onStdout = io.write,
 				onStderr = io.write,
@@ -325,6 +330,5 @@ lake.target("build/CMakeCache.txt")
 			return
 		end
 
-		lake.chdir ".."
-
+		lake.chdir(cwd)
 	end)
