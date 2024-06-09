@@ -3,10 +3,12 @@ all:
 	cd lake && ${MAKE} -j8
 
 luajit:
-	cd LuaJIT && \
+	mkdir luajit/lib
+	mkdir luajit/include
+	cd luajit/src && \
 	${MAKE} clean && \
-	${MAKE} -j8 
-	cp LuaJIT/src/libluajit.a lake/lib
-	cp LuaJIT/src/{lua.h,lualib.h,lauxlib.h} lake/include
+	${MAKE} -j 
+	cp luajit/src/src/libluajit.a luajit/lib
+	cp luajit/src/src/{lua.h,lualib.h,lauxlib.h} luajit/include
 
-.PHONY: all
+.PHONY: all luajit
