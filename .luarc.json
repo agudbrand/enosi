@@ -1,5 +1,11 @@
 {
 	"runtime.version": "luajit",
-	"workspace.library": [ "lake/src/lake.lua" ],
+	"workspace.ignoreSubmodules": false,
+	"workspace.library": 
+	[ 
+		"lake/src/lake.lua",
+		"lpp/src/",
+		"iro/iro/lua/",
+	],
 	"workspace.ignoreDir": ["llvm"]
 }
