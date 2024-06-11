@@ -22,6 +22,9 @@ local cwd = lake.cwd()
 local compiler = "clang++"
 local linker = "clang++"
 
+-- NOTE!! only general compiler flags that apply to all projects
+--        can go here, projects may define their own flags in 
+--        their modules
 local compiler_flags = Twine.new
 	"-std=c++20"
 	"-Wno-switch"
@@ -187,6 +190,33 @@ recipes.depfile = function(c_file, d_file, o_file, flags, filter)
 
 		f:write(out)
 		f:close()
+	end
+end
+
+recipes.luaToObj = function(lfile, ofile)
+	lake.mkdir(tostring(ofile):match("(.*)/"), {make_parents = true})
+
+	local cmd = Twine.new
+		"luajit" "-b"
+
+	if mode == "debug" then
+		cmd "-g"
+	end
+
+	return function()
+		local capture = outputCapture()
+
+		local start = lake.getMonotonicClock()
+		local result = lake.cmd({cmd, lfile, ofile}, capture)
+		local time_took = (lake.getMonotonicClock() - start) / 1000000
+
+		if result == 0 then
+			io.write(green, lfile, reset, " -> ", blue, ofile, reset, " ", time_took, "s\n")
+		else
+			io.write(red, "compiling ", blue, ofile, red, " failed", reset, ":\n")
+		end
+
+		io.write(capture.s)
 	end
 end
 
