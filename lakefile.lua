@@ -354,6 +354,7 @@ import "iro"
 import "lake"
 import "lppclang"
 import "lpp"
+import "experimental/events"
 
 assert(reports.lake.executables[1], "lake's lakemodule did not report an executable")
 -- assert(reports.lpp.executables[1], "lpp's lakemodule did not report an executable")

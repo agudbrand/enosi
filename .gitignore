@@ -16,3 +16,5 @@ temp/
 llvm/src
 
 lakeuser.lua
+
+experimental/events/build/
