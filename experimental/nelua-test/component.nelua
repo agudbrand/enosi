@@ -1,0 +1,49 @@
+global Component = @record
+{
+	typeid: uint64 -- not sure if this will ever be useful
+} 
+
+local Comp = Component
+
+require "vec"
+
+global Rotation = @enum
+{
+	Deg0 = 0,
+	Deg90,
+	Deg180,
+	Deg270,
+}
+
+global Comp.Transform = @record
+{
+	pos: vec2,
+	rot: Rotation,
+}
+
+global Comp.Health = @record
+{
+	val: int8,
+}
+
+-- setup all components special info
+##[[
+
+local uidaccum = -1
+for compname, compdef in pairs(Component.value.metafields) do
+	uidaccum = uidaccum + 1
+
+	-- copy base fields
+	for i,field in ipairs(Component.value.fields) do
+		compdef.value:add_field(field.name, field.type, i)
+	end
+
+	-- generate initializer
+]]
+function Component.#|compname|#:init()
+	self.typeid = #[uidaccum]# 
+end
+##[[
+end
+
+]]

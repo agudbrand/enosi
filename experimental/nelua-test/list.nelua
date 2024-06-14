@@ -1,0 +1,224 @@
+require "pool"
+
+## local makeSList = generalize(function(T)
+	local T = #[T]#
+
+	local Node = @record
+	{
+		data: *T,
+		next: *Node,
+	}
+
+	local SListT = @record
+	{
+		pool: Pool(Node),
+		head: *Node
+	}
+
+	function SListT:init()
+		self.pool:init()
+		self.head = nilptr
+	end
+
+	function SListT:deinit()
+		self.pool:deinit()
+		self.head = nilptr
+	end
+
+	function SListT:push(x: *T)
+		local n = self.pool:add()
+		n.next = self.head
+		n.data = x
+		self.head = n
+		return n
+	end
+
+	function SListT:pop()
+		local n = self.head 
+		self.head = n.next
+		local data = n.data
+		self.pool:remove(n)
+		return data
+	end
+
+	function SListT:isEmpty()
+		return not self.head
+	end
+
+	local Iterator = @record
+	{
+		n: *Node
+	}
+
+	function Iterator:__next()
+		if not self.n then
+			return false, nilptr
+		end
+
+		local o = self.n
+		self.n = self.n.next
+		return o, self
+	end
+
+	function SListT:__next(n: *Node) : (boolean, *Node, *T)
+		local nn = (do
+			if not n then
+				in self.head
+			else
+				in n.next
+			end
+		end)
+
+		if not nn then
+			return false, nilptr, nilptr
+		end
+		return true, nn, nn.data
+	end
+
+	function SListT:each()
+		return SListT.__next, self, nilptr
+	end
+
+	## return SListT
+## end)
+
+global SList: type = #[makeSList]#
+
+## local makeDList = generalize(function(T)
+	local T = #[T]#
+
+	local Node = @record
+	{
+		data: *T,
+		next: *Node,
+		prev: *Node,
+	}
+
+	local DList = @record
+	{
+		pool: Pool(Node),
+		head: *Node,
+		tail: *Node,
+	}
+
+	function DList:init()
+		self.pool:init()
+		self.head = nilptr
+		self.tail = nilptr
+	end
+
+	function DList:deinit()
+		self.pool:deinit()
+		self.head = nilptr
+		self.tail = nilptr
+	end
+
+	function DList:insertAfter(x: *Node, v: *T)
+		local n = self.pool:add()
+		n.prev = x
+		if x.next then
+			x.next.prev = n
+			n.next = x.next
+		else
+			self.tail = n
+		end	
+		x.next = n
+		n.data = v
+		return n
+	end
+
+	function DList:insertBefore(x: *Node, v: *T)
+		local n = self.pool:add()
+		n.next = x
+		if x.prev then
+			x.prev.next = n
+			n.prev = x.prev
+		else
+			self.head = n
+		end
+		x.prev = n
+		n.data = v
+		return n
+	end
+
+	function DList:pushHead(x: *T)
+		if self.head then
+			return self:insertBefore(self.head, x)
+		end
+
+		self.head = self.pool:add()
+		self.tail = self.head
+		self.head.data = x
+		return self.head
+	end
+
+	function DList:pushTail(x: *T)
+		if self.tail then
+			return self:insertAfter(self.tail, x)
+		end
+		return self:pushHead(x)
+	end
+
+	function DList:unlink(x: *Node)
+		if x.prev then
+			x.prev.next = x.next
+		else
+			self.head = x.next
+		end
+
+		if x.next then
+			x.next.prev = x.prev
+		else
+			self.tail = x.prev
+		end
+	end
+
+	function DList:remove(n: *Node)
+		self:unlink(n)
+		self.pool:remove(n)
+	end
+
+	function DList:isEmpty()
+		return not self.head
+	end
+
+	local Iterator = @record
+	{
+		n: *Node
+	}
+
+	function Iterator:__next()
+		if not self.n then
+			return false, nilptr
+		end
+
+		local o = self.n
+		self.n = self.n.next
+		return o, self
+	end
+
+	function DList:__next(n: *Node) : (boolean, *Node, *T)
+		local nn = (do
+			if not n then
+				in self.head
+			else
+				in n.next
+			end
+		end)
+
+		if not nn then
+			return false, nilptr, nilptr
+		end
+		return true, nn, nn.data
+	end
+
+	function DList:each()
+		return DList.__next, self, nilptr
+	end
+
+	global DList.Node = Node
+
+	## return DList
+## end)
+
+global DList: type = #[makeDList]#

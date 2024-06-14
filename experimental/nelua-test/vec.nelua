@@ -1,0 +1,11 @@
+global vec2 = @record
+{
+	x: int32,
+	y: int32
+}
+
+function vec2:__tostring()
+	return "("..self.x..", "..self.y..")"
+end
+
+return vec2

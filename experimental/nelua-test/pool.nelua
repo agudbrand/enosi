@@ -1,0 +1,97 @@
+require "memory"
+require "allocators.default"
+
+local allocator = default_allocator
+
+## local make_Pool = generalize(function(T)
+	local T = #[T]#
+	local n_slots <comptime> = 16
+	
+	local Slot <forwarddecl> = @union{}
+
+	Slot = @union -- TODO(sushi) change to union when supported
+	{
+		next_free_slot: *Slot,
+		element: T,
+}
+
+	local Chunk = @record
+	{
+		next: *Chunk,
+		slots: [n_slots]Slot
+	}
+
+	local PoolT = @record
+	{
+		current_chunk: *Chunk,
+		free_slot: *Slot,
+	}
+
+	function PoolT:newChunk()
+		local chunk = allocator:new(@Chunk)
+		
+		for i=0,<n_slots do
+			local slot = &chunk.slots[i]
+
+			slot.next_free_slot = (do
+				if i == n_slots - 1 then
+					in nilptr
+				else
+					in &chunk.slots[i+1]
+				end
+			end)
+
+		end
+
+		chunk.next = self.current_chunk
+		self.current_chunk = chunk
+	end
+
+	function PoolT:init()
+		self:newChunk()
+		self.free_slot = &self.current_chunk.slots[0]
+	end
+
+	function PoolT:deinit()
+		while self.current_chunk do
+			local next = self.current_chunk.next
+			allocator:delete(self.current_chunk)
+			self.current_chunk = next
+		end
+
+		self.current_chunk = nilptr
+		self.free_slot = nilptr
+	end
+
+	function PoolT:add()
+		local slot = self.free_slot
+
+		if not slot.next_free_slot then
+			self:newChunk()
+			slot.next_free_slot = &self.current_chunk.slots[0]
+		end
+
+		self.free_slot = slot.next_free_slot
+
+		return &slot.element
+	end
+
+	function PoolT:remove(x: *T)
+		local slot = (@*Slot)(x)
+		
+		-- call the type's __close if it has one
+		## if T.metafields and T.metafields.__close then
+			slot.element:__close()
+		## end
+
+		slot.next_free_slot = self.free_slot
+		self.free_slot = slot
+	end
+
+	## return PoolT
+## end)
+
+global Pool: type = #[make_Pool]#
+
+return Pool
+

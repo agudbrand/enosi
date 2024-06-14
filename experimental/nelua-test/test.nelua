@@ -1,0 +1,11 @@
+##[[
+	local Event = function(X)
+		print(X)
+	end
+]]
+
+local Event = #[Event]#
+
+local a = @Event
+
+
