@@ -4,6 +4,7 @@ require "event"
 require "io"
 require "memory"
 require "component"
+require "entmgr"
 
 ## pragmas.nochecks = false
 
@@ -237,8 +238,6 @@ end
 
 		T.value.objid = Object.value.derived_count
 		Object.value.derived_count = Object.value.derived_count + 1
-
-		local pT = types.PointerType(T)
 
 		for i, field in ipairs(Object.value.fields) do
 			T.value:add_field(field.name, field.type, i)

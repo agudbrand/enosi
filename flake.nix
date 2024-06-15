@@ -29,6 +29,8 @@
 					rr
 					mold
 					lua-language-server
+					luarocks
+					nelua
 
 					notcurses
 

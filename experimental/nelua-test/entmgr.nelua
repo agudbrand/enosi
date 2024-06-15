@@ -1,0 +1,22 @@
+--
+-- Creator and manager of entities.
+--
+-- Owns all existing components and associates them with 
+-- entities.
+--
+
+require "list"
+require "pool"
+require "component"
+
+global EntMgr = @record
+{
+	-- Linked list of components, which at the moment are 
+	-- just allocated by the gc allocator.
+	components: DList(Component),
+
+	
+}
+
+
+

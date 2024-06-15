@@ -1,6 +1,7 @@
 global Component = @record
 {
-	typeid: uint64 -- not sure if this will ever be useful
+	-- rtti 
+	typeid: uint64
 } 
 
 local Comp = Component

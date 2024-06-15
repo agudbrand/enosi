@@ -1,0 +1,20 @@
+require "pool"
+
+## local makeAVL = function(T, FGetKey)
+	local T = #[T]#
+
+	local Node = @record
+	{
+		balance_factor: int8,
+		left: *Node,
+		right: *Node,
+		data: *T
+	}
+
+	local AVL = @record
+	{
+		
+	}
+
+	## return AVL
+## end
