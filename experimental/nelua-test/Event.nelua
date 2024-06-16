@@ -1,0 +1,28 @@
+require "helpers"
+require "list"
+require "pool"
+
+global Event = @record{}
+
+## isEvent = function(T) return T.is_event end
+## isEventPointer = function(T) return T.is_pointer and isEvent(T.subtype) end
+
+global pEventConcept = #[concept(function(attr)
+	if attr.type.is_pointer and
+	   attr.type.subtype.is_event 
+	then
+		return true
+	else
+		return false, "a pointer to an Event is expected here"
+	end
+end)]#
+
+##[[
+
+helpers.makeInheritable(Event, function(eventname, TChild)
+	TChild.is_event = true
+end)
+
+]]
+
+return Event

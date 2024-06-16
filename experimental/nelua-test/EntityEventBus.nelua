@@ -1,0 +1,156 @@
+require "Event"
+require "EntMgr"
+require "Component"
+
+local HandlerSig = @function(pointer, EntId, pointer, pointer)
+
+## local deferImpl = helpers.deferImpl
+
+##[[
+	local resolvePointerTypes = function(TComp, TEvent)
+		if TComp.is_pointer then TComp = TComp.subtype end
+		if TEvent.is_pointer then TEvent = TEvent.subtype end
+		return TComp, TEvent
+	end
+
+	local getCompEventFieldSpelling = function(TComp, TEvent)
+		TComp, TEvent = resolvePointerTypes(TComp, TEvent)
+		return "sublist_"..TComp.codename.."_"..TEvent.codename
+	end
+
+	local getEventSubListField = function(TComp, TEvent)
+		if TComp.is_pointer then TComp = TComp.subtype end
+		if TEvent.is_pointer then TEvent = TEvent.subtype end
+		local field = EntityEventBus.value.fields[getCompEventFieldSpelling(TComp,TEvent)]
+		static_assert(field, debug.traceback().."Type "..tostring(TEvent).." or "..tostring(TComp).." was not registered with this event bus!")
+		return field
+	end
+]]
+
+local Subscription = @record
+{
+	subscriber: pointer,
+	handler: HandlerSig
+}
+
+local SubList = @record
+{
+	pool: Pool(Subscription),
+	list: SList(Subscription),
+}
+
+function SubList:init()
+	self.pool:init()
+	self.list:init()
+end
+
+function SubList:sub(subscriber: pointer, handler: HandlerSig)
+	local sub = self.pool:add()
+	sub.subscriber = subscriber
+	sub.handler = handler
+	self.list:push(sub)
+end
+
+function SubList:emit(entid: EntId, comp: pointer, event: pointer)
+	for _,sub in self.list:each() do
+		sub.handler(sub.subscriber, entid, comp, event)
+	end
+end
+
+-- List of subscriptions for each event. One of these
+-- exists for each type of Component.
+global CompSubList = @record{} -- idk why this has to be global, :emit doesnt compile otherwise
+
+##[[
+	local getCompSubListEventFieldSpelling = function(TEvent)
+		if TEvent.is_pointer then TEvent = TEvent.subtype end
+		return 'sublist_'..TEvent.codename
+	end
+]]
+
+##[[ 
+	deferImpl(function()
+		for _,TEvent in pairs(Event.value.metafields) do
+			CompSubList.value:add_field(
+				getCompSubListEventFieldSpelling(TEvent), 
+				SubList.value)
+		end
+  end) 
+]]
+
+function CompSubList:init()
+	## deferImpl(function()
+		## for _,field in ipairs(CompSubList.value.fields) do
+			self.#|field.name|#:init()
+		## end
+	## end)
+end
+
+function CompSubList:emit(event: auto)
+	## deferImpl(function()
+		## local field = CompSubList.value.fields[getCompSubListEventFieldSpelling(event.type)]
+		self.#|field.name|#:emit(event)
+	## end)
+end
+
+## deferImpl(function()
+	EntityEventBus = @record
+	{
+		entmgr: *EntMgr,
+		cmp_sub_lists: [#[Component.count]#]CompSubList
+	}
+
+	##[[
+			-- Generate subscription lists for each component and event.
+			-- This doesnt need to generate every combination, but I don't think
+			-- its possible w how this is setup atm to figure out what events 
+			-- are actually associated with which components.
+			--
+			-- Actually now I think it is since this is nicely defer'd, but that's
+			-- for another time.
+			for compname,TComp in pairs(Component.value.metafields) do
+				for eventname,TEvent in pairs(Event.value.metafields) do
+					local fieldname = getCompEventFieldSpelling(TComp, TEvent)
+					EntityEventBus.value:add_field(fieldname, SubList.value)
+				end
+			end
+		]]
+## end)
+
+function EntityEventBus:init(entmgr: *EntMgr)
+	## deferImpl(function()
+		self.entmgr = entmgr
+		## for i=0,Component.count-1 do
+			self.cmp_sub_lists[#[i]#]:init()
+		## end
+	## end)
+end
+
+## helpers.generateCreateFunc(EntityEventBus)
+
+-- when TEvent is raised on an entity that has a TComp, the given handler will be notified.
+function EntityEventBus:subscribeTo(TComp: type, TEvent: type, subscriber: pointer, handler: auto)
+	## deferImpl(function()
+			##[[
+				local field = getEventSubListField(TComp.value, TEvent.value)
+
+				local TArgs = handler.type.argtypes
+				-- TODO(sushi) actually check that the type of entsys/component is correct
+				assert(isEntSysPointer(TArgs[1]), "self must be an EntSys pointer")
+				assert(isEntId(TArgs[2]), "first param must be an EntId")
+				assert(isComponentPointer(TArgs[3]), "second param must be a Component pointer")
+			]]
+
+			self.#|field.name|#:sub(subscriber, (HandlerSig)(handler))
+	## end)
+end
+
+function EntityEventBus:raise(event: auto, entid: EntId)
+	## deferImpl(function()
+		local cmplist = assert(self.entmgr:getEnt(entid), "failed to get component list of entity with id "..entid)
+
+		for _,cmp in cmplist:each() do
+			self.cmp_sub_lists[cmp.typeid]:emit(event)
+		end
+	## end)
+end

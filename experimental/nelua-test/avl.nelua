@@ -2,6 +2,7 @@ require "pool"
 
 ## local makeAVL = function(T, FGetKey)
 	local T = #[T]#
+	local getKey = #[FGetKey]#
 
 	local Node = @record
 	{
@@ -13,8 +14,119 @@ require "pool"
 
 	local AVL = @record
 	{
-		
+		root: *Node,
+		pool: Pool(Node),
 	}
+
+	function AVL:init()
+		self.pool:init()
+	end
+
+	function AVL.create()
+		local avl: AVL
+		avl:init()
+		return avl
+	end
+
+	function AVL:destroy()
+		self.pool:deinit()
+		self.root = nilptr
+	end
+
+	function AVL:has(data: *T)
+		if not self.root then
+			return false
+		end
+
+		local data_key = getKey(data)
+		local search_node = self.root
+		while true do
+			local search_key = getKey(search_node.data)
+
+			if search_key == data_key then
+				return true
+			end
+
+			if search_key > data_key then
+				if search_key.left then
+					search_node = search_node.left
+				else
+					return false
+				end
+			elseif search_node.right then
+				search_node = search_node.right
+			else
+				return false
+			end
+		end
+	end
+
+	function AVL:find(key: uint64)
+		if not self.root then
+			return nilptr
+		end
+
+		local search_node = self.root
+
+		while true do
+			local search_key = getKey(search_node.data)
+
+			if search_key == key then
+				return search_node.data
+			end
+
+			if search_key > key then
+				if search_node.left then
+					search_node = search_node.left
+				else
+					return nilptr
+				end
+			elseif search_node.right then
+				search_node = search_node.right
+			else
+				return nilptr
+			end
+		end	
+	end
+
+	function AVL:insert(data: *T) 
+		if not self.root then
+			self.root = self.pool:add()
+			self.root.data = data
+			self.root.balance_factor = 0
+			return
+		end
+
+		local data_key = getKey(data)
+		local search_node = self.root
+		local place_right = true
+
+		while true do
+			local search_key = getKey(search_node.data)
+
+			if search_key == data_key then
+				return
+			end
+
+			if search_key > data_key then
+				if search_node.left then
+					search_node = search_node.left
+				else
+					place_right = false
+					break
+				end
+			elseif search_node.right then
+				search_node = search_node.right
+			else
+				break
+			end
+		end
+
+		local new_node = self.pool:add()
+
+		
+	
+	end
 
 	## return AVL
 ## end

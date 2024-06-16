@@ -1,0 +1,66 @@
+require "helpers"
+require "EntMgr"
+
+global EntSys = @record
+{
+	entmgr: *EntMgr
+}
+
+##[[
+isEntSys = function(T) return T.is_entsys end
+isEntSysPointer = function(T) return T.is_pointer and isEntSys(T.subtype) end
+]]
+
+global pEntSysConcept = #[concept(function(attr)
+	return isEntSysPointer(attr.type), "a pointer to an EntSys must be passed here"
+end)]#
+
+##[[
+
+helpers.makeInheritable(EntSys, function(name, TChild)
+	TChild.is_entsys = true
+	]]
+	function #[TChild]#:subscribeTo(TComp: type, TEvent: type, handler: auto)
+		self.entmgr.eventbus:subscribeTo(TComp, TEvent, self, handler)
+	end
+	##[[
+	
+	for i,field in ipairs(EntSys.value.fields) do
+		TChild:add_field(field.name, field.type, i)
+	end
+end)
+
+]]
+
+##[[
+
+EntSys.subscribeTo = function(TComp, TEvent, F)
+	local scope = context.scope.parent.parent.parent
+
+	helpers.dumpTable(scope)
+
+	assert(TComp, "subscribeTo passed a nil TComp")
+	assert(TEvent, "subscribeTo passed a nil TEvent")
+
+	TComp = TComp.value
+	TEvent = TEvent.value
+
+	assert(scope.is_function, "subscribeTo must be used inside of a function!")
+	assert(scope.selfsym, "subscribeTo must be used inside of a method!")
+	assert(scope.selfsym.type.subtype.is_entsys, "subscribeTo must be used inside of a EntSys method!")
+
+	assert(isComponent(TComp), "subscribeTo must be passed a Component type as its first argument")
+	assert(isEvent(TEvent), "subscribeTo must be passed an Event type as its first argument")
+
+	print(F)
+
+	local handler_name = self.type.subtype.nickname.."_"..TEvent.name.."_"..TComp.name.."_handler"
+	]]
+		local function #|handler_name|#(self: #[self.type]#, entid: EntId, comp: *#[TComp]#, event: *#[TEvent]#)
+		end
+		-- ## helpers.dumpKeys(self.type.subtype.fields.entmgr.type.subtype.fields.eventbus.type.subtype.metafields)
+		self.entmgr.eventbus:subscribeTo(#[TComp]#, #[TEvent]#, self, #|handler_name|#)
+	##[[
+end
+
+]]

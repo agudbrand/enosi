@@ -1,14 +1,50 @@
-require "pool"
-require "list"
-require "event"
 require "io"
 require "memory"
-require "component"
-require "entmgr"
+require "pool"
+require "list"
+require "Event"
+require "Component"
+require "EntMgr"
+require "EntSys"
+require "EntityEventBus"
+require "FreeEventBus"
+require "PlayerSystem"
+require "InputSystem"
 
 ## pragmas.nochecks = false
 
 local bool = boolean
+
+## helpers.using(Component)
+## helpers.using(Event)
+
+global EntSys.Player = @record {}
+
+## local subscribeTo = EntSys.subscribeTo
+
+function EntSys.Player:test()
+	-- ## helpers.dumpTable(context.scope.parent.selfsym)
+	subscribeTo!(Health, KeyPressed, 
+	(do
+			
+	end))
+end
+
+global Event.Thing = @record{}
+
+local entmgr = EntMgr.create()
+
+local eventbus = @record{}
+local eventbus.entity = EntityEventBus.create(entmgr)
+local eventbus.free = FreeEventBus.create()
+
+local sys = @record{}
+
+local sys.input = InputSystem.create(eventbus.free)
+local sys.player = 
+	PlayerSystem.create(
+		eventbus.free,
+		entmgr)
 
 ##[==[ 
 
@@ -30,471 +66,7 @@ cemit
 
 ]==]
 
--- when used as the type of a function parameter, anything passed into it 
--- will automatically be converted to a pointer
-local autoptr_concept = #[concept(function(attr)
-	if not attr.type.is_pointer then
-		return types.PointerType(attr.type)
-	end
-	return attr.type
-end)]#
-
-##[[
-local dumpkeys = function(tbl)
-	if not tbl then print("nil table") end
-	for k in pairs(tbl) do
-		print(k)
-	end	
-end
-
-local dumptbl = function(tbl)
-	if not tbl then print("nil table") end
-	for k,v in pairs(tbl) do
-		print(k, v)
-	end	
-end
-]]
-
-local pSentientConcept = #[concept(function(attr)
-	if attr.type.is_pointer and 
-		 attr.type.subtype.is_sentient
-	then
-		return true
-	else
-		error("a pointer to a Sentient type must be passed here! Given: "..attr)
-	end
-end)]#
-
--- Sentient trait.
--- A type that can subscribe to and raise events.
-##[[
-local makeSentient = function(T)
-	if T.value.is_sentient then return end
-	T.value.is_sentient = true
-]]
-function #|T.name|#.subscribeTo(self: pSentientConcept, event: type, handler: auto)
-	event_bus:subscribeTo(event, self, handler)
-end
-
--- events always passed as pointer, so that they are assumed mutable
--- this doesnt really need to be in this trait
-function #|T.name|#.raiseEvent(self: pSentientConcept, event: autoptr_concept)
-	event_bus:emit(event)
-end
-##[[
-end
-]]
-
-local Player <forwarddecl> = @record {}
-local Object <forwarddecl> = @record {}
-local Animal <forwarddecl> = @record {}
-
-local vec2 = @record
-{
-	x: int32,
-	y: int32,
-}
-
-function vec2:__tostring()
-	return "("..self.x..", "..self.y..")"
-end
-
-local Event.KeyPressed = @record
-{
-	key: byte
-}
-
-local Event.ObjectTryMove = @record
-{
-	obj: *Object,
-	destination: vec2,
-	cancel: bool
-}
-
-local Event.ObjectMoved = @record
-{
-	obj: *Object,
-	oldpos: vec2
-}
-
-local Event.PlayerAttack = @record
-{
-	player: *Player,
-	attack_pos: vec2
-}
-
-local Event.AnimalDamaged = @record
-{
-	animal: *Animal
-}
-
-local Event.AnimalDeath = @record
-{
-	animal: *Animal
-}
-
--- notify things that event processing has finished
-local Event.AfterEventProcessing = @record {}
- 
--- bring all events into local scope 
-## for k,v in pairs(Event.value.metafields) do
-	local #|k|# = #[v]#
-	## v.value.is_event = true
-## end
-
-local event_bus: EventBus(nil)
-
-event_bus:init()
-
--- helper to wrap a lot of the boilerplate needed to sub to an event
-## local subscribeTo = function(E, F)
-	##[[
-		if not E then
-			error("subscribeTo passed a nil Event !")
-		end
-
-		-- construct a name for the function so that we can find it easily in C code
-		local handler_name = self.type.subtype.nickname.."_"..E.name.."_handler"
-	]]
-	local function #|handler_name|#(self: #[self.type]#, event: *#[E]#)
-		## F()
-	end
-
-	self:subscribeTo(#[E]#, #|handler_name|#)
-## end
-
-## local raiseEvent = function(E, ...)
-	## if E.value and E.value.is_event then
-		local E = #[E]#
-		local ev: E
-		-- if we're passed an event type, we're constructing one in place
-		## for i,v in ipairs{...} do
-			ev.#|E.value.fields[i].name|# = #[v]#
-		## end
-	  self:raiseEvent(ev)
-	## else
-		-- if not then we must be getting an event variable directly
-		self:raiseEvent(#[E]#)
-	## end
-## end
-
-local TileObjectList = @DList(Object)
-
-Object = @record
-{
-	typeid: uint64,
-	pos: vec2,
-  tile_node: *TileObjectList.Node
-}
-
-## Object.value.is_object = true
-## Object.value.derived_count = 0
-## makeSentient(Object)
-
-local pObjectConcept = #[concept(function(attr)
-	if attr.type.is_pointer and 
-		 attr.type.subtype.is_object 
-	then
-		return true
-	else
-		error("a pointer to an Object must be passed here!")
-	end
-end)]#
-
-function Object.tryMoveTo(ptr: pObjectConcept, pos: vec2)
-	local self = (@*Object)(ptr)
-	local attempt = (@ObjectTryMove)
-	{
-		obj = self,
-		destination = pos,
-		cancel = false
-	}
-	## raiseEvent(attempt)
-
-	if attempt.cancel then
-		return
-	end
-	
-	local oldpos = self.pos
-	self.pos = pos
-	## raiseEvent(ObjectMoved, self, oldpos)
-end
-
-##local objInit = function()
-		self.typeid = #[self.type.subtype.objid]#
-##end
-
-##local makeObject = function(T)
-		## if T.value.is_object then return end 
-		## T.value.is_object = true
-
-		local T = #[T]#
-
-		## makeSentient(T)
-
--- inherit all of Object's fields and methods
-##[[
-		T.value.is_object = true
-
-		T.value.objid = Object.value.derived_count
-		Object.value.derived_count = Object.value.derived_count + 1
-
-		for i, field in ipairs(Object.value.fields) do
-			T.value:add_field(field.name, field.type, i)
-		end
-
-		for k,v in pairs(Object.value.metafields) do
-			T.value:set_metafield(k, v)
-		end
-		Player.value.metafields.objid = Object.value.derived_count
-]]
-##end
-
-Player = @record{}
-## makeObject(Player)
-
-function Player:say(...: varargs)
-	print("Player: ", ...)
-end
-
-function Player:init()
-	## objInit()
-
-	## subscribeTo(KeyPressed, function()
-			local pos = self.pos
-			switch event.key do
-			case 'w'_u8 then
-				self:tryMoveTo({pos.x,pos.y-1})
-			case 'a'_u8 then
-				self:tryMoveTo({pos.x-1,pos.y})
-			case 's'_u8 then
-				self:tryMoveTo({pos.x,pos.y+1})
-			case 'd'_u8 then
-				self:tryMoveTo({pos.x+1,pos.y})
-
-			case 'i'_u8 then
-			  #[raiseEvent]#(PlayerAttack, self, (@vec2){pos.x,pos.y-1})
-			case 'j'_u8 then
-				#[raiseEvent]#(PlayerAttack, self, (@vec2){pos.x-1,pos.y})
-			case 'k'_u8 then
-				#[raiseEvent]#(PlayerAttack, self, (@vec2){pos.x,pos.y+1})
-			case 'l'_u8 then
-				#[raiseEvent]#(PlayerAttack, self, (@vec2){pos.x+1,pos.y})
-			end
-	## end)
-
-	## subscribeTo(AnimalDamaged, function()
-		self:say("Take that foul beast!")
-	## end)
-end
-
-function Player.create(pos: vec2)
-	local out = new(@Player)
-	out:init()
-	out.pos = pos
-	return out
-end
-
-Animal = @record { health: int8 }
-## makeObject(Animal)
-
-function Animal:init()
-	## objInit()
-
-	## subscribeTo(PlayerAttack, function()
-		if not event.attack_pos == self.pos or 
-			 self.health <= 0
-		then
-			return
-		end
-		
-		print("Animal: baaah!")
-
-		self.health = self.health - 25
-
-		if self.health <= 0 then
-			## raiseEvent(AnimalDeath, self)
-		else
-			## raiseEvent(AnimalDamaged, self)
-		end
-	## end)
-end
-
-function Animal.create(pos: vec2)
-	local out = new(@Animal)
-	out:init()
-	out.pos = pos
-	out.health = 100
-	return out
-end
-
-local Narrator = @record{}
-
-## makeSentient(Narrator)
-
-function Narrator:init()
-	## subscribeTo(PlayerAttack, function()
-		print("The player has attacked position ", event.attack_pos)
-	## end)
-
-	## subscribeTo(ObjectMoved, function()
-		if event.obj.typeid == #[Player.value.objid]# then
-			print("The player has moved to ", event.obj.pos)
-		end
-	## end)
-
-	## subscribeTo(AnimalDeath, function()
-		print("An animal has been slain by the player")
-	## end)
-end
-
-local Tile = @record
-{
-	kind: enum
-	{
-		Empty = 0,
-		Wall
-	},
-	objects: TileObjectList
-}
-local Tile.Kind = #[Tile.value.fields.kind.type]#
-
-function Tile:hasObject()
-	return not self.objects:isEmpty()
-end
-
-function Tile:addObject(ptr: pObjectConcept)
-	return self.objects:pushHead((@*Object)(ptr))
-end
-
-function Tile:removeObject(ptr: pObjectConcept)
-	self.objects:remove(ptr.tile_node)
-end
-
-local Map_size <comptime> = 7
-local Map_area <comptime> = Map_size * Map_size
-
-local Map = @record
-{
-	deferred_removal: SList(Object),
-
-	tiles: [Map_area]Tile,
-}
-
-## makeSentient(Map)
-
-function Map.getTilePosFromOffset(offset: int32) : vec2
-	return { offset % Map_size, offset / Map_size }
-end
-
-print(Map.getTilePosFromOffset(1))
-print(Map.getTilePosFromOffset(2))
-print(Map.getTilePosFromOffset(3))
-
-function Map:getTile(pos: vec2)
-	return &self.tiles[pos.x + Map_size * pos.y]
-end
-
-function Map:init(initstr: string)
-	self.deferred_removal:init()
-	
-	for _,tile in mipairs(self.tiles) do
-		tile.objects:init()
-	end
-
-	local function readInit(self: *Map, initstr: string)
-		local tileidx = 0
-		for _,c in ipairs(initstr) do
-			if tileidx >= Map_area then break end
-			local pos = Map.getTilePosFromOffset(tileidx)
-
-			switch c do
-			case 'X'_u8 then
-				self.tiles[tileidx].kind = Tile.Kind.Wall
-				tileidx = tileidx + 1
-			case 'P'_u8 then
-				local player = Player.create(pos)
-				player.tile_node = self.tiles[tileidx]:addObject(player)
-				tileidx = tileidx + 1
-			case 'A'_u8 then
-				local animal = Animal.create(pos)
-				animal.tile_node = self.tiles[tileidx]:addObject(animal)	
-				tileidx = tileidx + 1
-			case '.'_u8 then
-				self.tiles[tileidx].kind = Tile.Kind.Empty
-				tileidx = tileidx + 1
-			end
-		end
-	end
-	
-	readInit(self, initstr)
-
-	## subscribeTo(ObjectTryMove, function()
-		local tile = self:getTile(event.destination)
-		if Tile.Kind.Wall == tile.kind then
-			event.cancel = true
-		end
-	## end)
-
-	## subscribeTo(ObjectMoved, function()
-		local oldtile = self:getTile(event.oldpos)
-		local newtile = self:getTile(event.obj.pos)
-		oldtile:removeObject(event.obj)
-		event.obj.tile_node = newtile:addObject(event.obj)
-	## end)
-end
-
-function Map:render()
-	for y=0,<Map_size do
-		for x=0,<Map_size do
-			local tile = self:getTile({#[x]#,#[y]#})
-
-			if tile.kind == Tile.Kind.Wall then
-				io.write("X")
-			else
-				if tile:hasObject() then
-					local c = "?"
-
-					local n = tile.objects.head
-
-					while n do
-						local o = n.data
-						switch o.typeid do
-						case #[Player.value.objid]# then
-							c = "P"
-							break
-						case #[Animal.value.objid]# then
-							c = "A"
-						end
-						n = n.next
-					end
-
-					io.write(c)
-				else
-					io.write(".")
-				end
-			end
-		end
-			io.write("\n")
-	end
-end
-
-local narrator: Narrator
-narrator:init()
-
-local map: Map
-map:init([[
-	XXXXXXX
-	X...A.X
-	X.....X
-	X.....X
-	X.P...X
-	X.....X
-	XXXXXXX
-]])
-
 while true do
-	map:render()
-	local s = io.read(1)
-	event_bus:emit((@KeyPressed){s[1]})
+	sys.input:update()
 end
+

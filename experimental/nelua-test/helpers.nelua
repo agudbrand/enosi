@@ -1,0 +1,114 @@
+## helpers = {}
+
+global AutoPtrConcept = #[concept(function(attr)
+	if not attr.type.is_pointer then
+		return types.PointerType(attr.type)
+	end
+	return attr.type
+end)]#
+
+
+##[[
+helpers.deferImpl = function(F)
+	after_analyze(hygienize(F))
+end
+
+-- Generates a create function wrapper around a type's 'init' function.
+helpers.generateCreateFunc = function(T)
+	local initf = T.value.metafields.init
+	local n = aster
+	local initargs = {}
+
+	-- generate array of arguments that'll be passed to the init call
+	for _,param in ipairs(initf.defnode[3]) do
+		table.insert(initargs, n.Id { param[1] })
+	end
+
+	inject_statement(n.FuncDef 
+		{
+			false,
+			-- T:create
+			n.DotIndex { 'create', n.Id { T.name } },
+			-- copy parameters
+			initf.defnode[3],
+			-- returns T
+			{ n.PointerType { n.Id { T.name } } },
+			-- no annotations
+			false,
+			-- block
+			n.Block 
+			{
+			  -- local out: T
+				n.VarDecl { "local", { n.IdDecl { "out" } }, { n.Call { { n.Id { T.name } }, n.Id { "new" } } } }, 
+				-- out:init(...)
+				n.CallMethod { "init", initargs, n.Id { "out" } },
+				-- return out
+				n.Return { n.Id { "out" } }
+			}
+			
+		})
+end
+
+-- When used on 'namespace' records, this will call 'F' when the 
+-- type of a subrecord of 'T' is set.
+--
+-- Eg. if we have 
+--   
+--   global Thing = @record{}
+--
+-- we can say 
+--
+--   helpers.makeInheritable(Thing, function(childname, TChild) print(childname, " = ", TChild)) end
+--
+-- and then when we write
+--
+--   global Thing.Child = @record{}
+--
+-- we shall see: 
+--
+--   Child = @record{}
+--
+-- or something like that. This is a nice way to be able to inject information into 
+-- all things of a certain kind and also collect all instances of them.
+helpers.makeInheritable = function(T, F)
+	setmetatable(T.value.metafields, 
+	{
+		__newindex = function(self, childname, value)
+			rawset(self, childname, value)
+			setmetatable(value,
+			{
+				__index = getmetatable(value),
+				__newindex = function(self, key, value)
+					rawset(self, key, value)
+					if key == "value" then
+						F(childname, value)
+					end
+				end
+			})
+		end
+	})
+end
+
+helpers.dumpTable = function(x)
+	if not x then print("nil table") end
+	for k,v in pairs(x) do
+		print(k,v)
+	end
+end
+
+helpers.dumpKeys = function(x)
+	if not x then print("nil table") end
+	for k in pairs(x) do
+		print(k)
+	end
+end
+
+-- Brings all the type metafields of the given record into the current scope
+helpers.using = function(T)
+	for k,v in pairs(T.value.metafields) do
+		if v.value.is_record then
+			]] local #|k|# = #[v]# ##[[
+		end
+	end
+end
+]]
