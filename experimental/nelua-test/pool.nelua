@@ -9,11 +9,11 @@ local allocator = default_allocator
 	
 	local Slot <forwarddecl> = @union{}
 
-	Slot = @union -- TODO(sushi) change to union when supported
+	Slot = @union 
 	{
 		next_free_slot: *Slot,
 		element: T,
-}
+	}
 
 	local Chunk = @record
 	{

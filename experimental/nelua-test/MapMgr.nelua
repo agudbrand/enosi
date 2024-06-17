@@ -1,0 +1,115 @@
+--
+-- Manages the state of the map.
+--
+-- Currently just an array of Tiles
+--
+
+require "helpers"
+require "list"
+require "vec"
+require "EntMgr"
+require "BroadcastEventBus"
+
+## local subscribeToEntityEvent = EntSys.subscribeToEntityEvent
+## local subscribeToBroadcastEvent = EntSys.subscribeToBroadcastEvent
+## local raiseEntityEvent = EntSys.raiseEntityEvent
+## local raiseBroadcastEvent = EntSys.raiseBroadcastEvent
+
+global Tile = @record
+{
+	kind: enum
+	{
+		Floor = 0,
+		Wall
+	}
+}
+
+global Tile.Kind = #[Tile.value.fields.kind.type]#
+
+global MapMgr = @record
+{
+	tiles: span(Tile),
+	dim: vec2,
+	broadcast: *BroadcastEventBus,
+}
+
+function MapMgr:init()
+end
+
+## helpers.generateCreateFunc(MapMgr)
+
+function MapMgr:area(): uint64 <inline>
+	return self.dim.x * self.dim.y
+end
+
+function MapMgr:vec2ToOffset(v: vec2): uint64 <inline>
+	return v.x + self.dim.x * v.y
+end
+
+function MapMgr:offsetToVec2(o: u64): vec2 <inline>
+	return {o % self.dim.x, o / self.dim.y}
+end
+
+function MapMgr:getTile(pos: vec2): *Tile
+		return &self.tiles[self:vec2ToOffset(pos)]
+end
+
+function MapMgr:loadMap(dim: vec2, s: string)
+	self.dim = dim
+	local area = dim.x*dim.y
+	self.tiles = new(Tile, area)
+	
+	local tileidx = 0
+	for _,c in ipairs(s) 
+	do
+		if tileidx >= area then break end
+		local pos = self:offsetToVec2(tileidx)
+		
+		switch c do
+		case 'X'_u8 then
+			self.tiles[tileidx].kind = Tile.Kind.Wall
+			tileidx = tileidx + 1
+		case '.'_u8 then
+			self.tiles[tileidx].kind = Tile.Kind.Floor
+			tileidx = tileidx + 1
+		end
+	end
+end
+
+-- Invoked for each tile the map tries to render.
+-- This is a pretty horrible way to go about getting 
+-- things to show themselves but I really dont want to try
+-- keeping a list of entities on each tile atm.
+global Event.MapRender = @record
+{
+	tile: *Tile,
+	pos: vec2,
+	-- The character the listener wants to be displayed.
+	icon: byte,
+}
+
+function MapMgr:render()
+	for y=0,<self.dim.y do
+		for x=0,<self.dim.x do
+			local tile = self:getTile({x, y})
+			local event = 
+				(@Event.MapRender)
+					{ tile, {x, y}, 0 }
+			self.broadcast:raise(event)
+
+			if event.icon ~= 0 then
+				io.write(string.format("%c", event.icon))
+				continue
+			end
+
+			io.write((do
+				switch tile.kind do
+				case Tile.Kind.Wall then in "X"
+				case Tile.Kind.Floor then in "."
+				else in " "
+				end
+			end))
+		end
+		io.write("\n")
+	end
+end

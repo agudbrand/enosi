@@ -6,45 +6,54 @@ require "Event"
 require "Component"
 require "EntMgr"
 require "EntSys"
+require "MapMgr"
 require "EntityEventBus"
-require "FreeEventBus"
+require "BroadcastEventBus"
 require "PlayerSystem"
 require "InputSystem"
+require "MoveSystem"
+require "EntSysMgr"
 
 ## pragmas.nochecks = false
+## pragmas.nogc = true -- yah i dont think im using this shit properly so ima just turn it off
 
 local bool = boolean
 
 ## helpers.using(Component)
 ## helpers.using(Event)
+## helpers.using(EntSys)
 
-global EntSys.Player = @record {}
-
-## local subscribeTo = EntSys.subscribeTo
-
-function EntSys.Player:test()
-	-- ## helpers.dumpTable(context.scope.parent.selfsym)
-	subscribeTo!(Health, KeyPressed, 
-	(do
-			
-	end))
-end
-
-global Event.Thing = @record{}
+ccomment! "Initialize managers"
 
 local entmgr = EntMgr.create()
+local mapmgr = MapMgr.create()
+
+mapmgr:loadMap({5,5}, 
+[[
+	XXXXX
+	X...X
+	X.P.X
+	X...X
+	XXXXX
+]])
+
+ccomment! "Initialize event buses"
 
 local eventbus = @record{}
 local eventbus.entity = EntityEventBus.create(entmgr)
-local eventbus.free = FreeEventBus.create()
+local eventbus.broadcast = BroadcastEventBus.create()
 
-local sys = @record{}
+entmgr.eventbus.entity = eventbus.entity
+entmgr.eventbus.broadcast = eventbus.broadcast
 
-local sys.input = InputSystem.create(eventbus.free)
-local sys.player = 
-	PlayerSystem.create(
-		eventbus.free,
-		entmgr)
+mapmgr.broadcast = eventbus.broadcast
+
+-- eventbus.entity:raise()
+
+ccomment! "Initialize entity systems"
+
+local entsysmgr = new(EntSysMgr)
+entsysmgr:init(entmgr, mapmgr)
 
 ##[==[ 
 
@@ -66,7 +75,10 @@ cemit
 
 ]==]
 
+local input = InputSystem.create(eventbus.broadcast)
+
 while true do
-	sys.input:update()
+	mapmgr:render()
+	input:update()
 end
 

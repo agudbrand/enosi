@@ -1,5 +1,6 @@
 require "helpers"
 require "EntMgr"
+require "BroadcastEventBus"
 
 global EntSys = @record
 {
@@ -19,12 +20,6 @@ end)]#
 
 helpers.makeInheritable(EntSys, function(name, TChild)
 	TChild.is_entsys = true
-	]]
-	function #[TChild]#:subscribeTo(TComp: type, TEvent: type, handler: auto)
-		self.entmgr.eventbus:subscribeTo(TComp, TEvent, self, handler)
-	end
-	##[[
-	
 	for i,field in ipairs(EntSys.value.fields) do
 		TChild:add_field(field.name, field.type, i)
 	end
@@ -34,32 +29,61 @@ end)
 
 ##[[
 
-EntSys.subscribeTo = function(TComp, TEvent, F)
-	local scope = context.scope.parent.parent.parent
+-- TODO(sushi) these could be moved to global functions in their respective busses that check for a type (such as EntSys)
+--             defining some kinda function that handles these working in their contexts and stuff yeah
 
-	helpers.dumpTable(scope)
+EntSys.subscribeToEntityEvent = function(TComp, TEvent, F)
+	assert(self, "subscribeTo cannot be used outside of a method")
+	assert(self.type.subtype.is_entsys, "subscribeTo must be used inside of an EntSys method")
 
 	assert(TComp, "subscribeTo passed a nil TComp")
 	assert(TEvent, "subscribeTo passed a nil TEvent")
 
-	TComp = TComp.value
-	TEvent = TEvent.value
-
-	assert(scope.is_function, "subscribeTo must be used inside of a function!")
-	assert(scope.selfsym, "subscribeTo must be used inside of a method!")
-	assert(scope.selfsym.type.subtype.is_entsys, "subscribeTo must be used inside of a EntSys method!")
-
-	assert(isComponent(TComp), "subscribeTo must be passed a Component type as its first argument")
-	assert(isEvent(TEvent), "subscribeTo must be passed an Event type as its first argument")
-
-	print(F)
+	assert(isComponent(TComp.value), "subscribeTo must be passed a Component type as its first argument")
+	assert(isEvent(TEvent.value), "subscribeTo must be passed an Event type as its first argument")
 
 	local handler_name = self.type.subtype.nickname.."_"..TEvent.name.."_"..TComp.name.."_handler"
 	]]
 		local function #|handler_name|#(self: #[self.type]#, entid: EntId, comp: *#[TComp]#, event: *#[TEvent]#)
+			## inject_statement(F.node[4])
 		end
-		-- ## helpers.dumpKeys(self.type.subtype.fields.entmgr.type.subtype.fields.eventbus.type.subtype.metafields)
-		self.entmgr.eventbus:subscribeTo(#[TComp]#, #[TEvent]#, self, #|handler_name|#)
+		self.entmgr.eventbus.entity:subscribeTo(#[TComp]#, #[TEvent]#, self, #|handler_name|#)
+	##[[
+end
+
+EntSys.subscribeToBroadcastEvent = function(TEvent, F)
+	assert(self, "subscribeTo cannot be used outside of a method")
+	assert(TEvent, "subscribeTo passed a nil TEvent")
+	assert(isEvent(TEvent.value), "subscribeToBroadcastEvent must be given an Event type")
+	
+	local handler_name = self.type.subtype.nickname.."_"..TEvent.name.."_broadcastHandler"
+	print(F)
+	]]
+		local function #|handler_name|#(self: #[self.type]#, event: *#[TEvent]#)
+			## inject_statement(F.node[4])
+		end
+		self.entmgr.eventbus.broadcast:subscribeTo(#[TEvent]#, self, #|handler_name|#)
+	##[[
+end
+
+EntSys.raiseEntityEvent = function(entid, event)
+	assert(self, "raise cannot be used outside of a method")
+	assert(self.type.subtype.is_entsys, "raise must be used inside of an EntSys method")
+	
+	assert(entid, "raise passed a nil entid")
+	assert(event, "raise passed a nil event")
+
+	]]
+		self.entmgr.eventbus.entity:raise(#[event]#, #[entid]#)
+	##[[
+end
+
+EntSys.raiseBroadcastEvent = function(event)
+	assert(self, "raise cannot be used outside of a method")
+	assert(event, "raise passed a nil event")
+
+	]]
+		self.entmgr.eventbus.broadcast:raise(#[event]#)
 	##[[
 end
 

@@ -16,8 +16,6 @@ end)]#
 
 ##[[
 
-local next_comp_typeid = 0
-
 helpers.makeInheritable(Component, function(childname, TChild)
 	Component.count = Component.count + 1
 

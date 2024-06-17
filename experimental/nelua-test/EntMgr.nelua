@@ -12,6 +12,7 @@ require "hashmap"
 require "Component"
 
 global EntityEventBus <forwarddecl> = @record {}
+global BroadcastEventBus <forwarddecl> = @record {}
 
 global EntId = @uint64
 global CompList = @DList(Component)
@@ -26,7 +27,11 @@ global EntMgr = @record
 	components: CompList,
 	entities: EntityMap,
 	next_ent_id: EntId,
-	eventbus: *EntityEventBus,
+	eventbus: record
+	{
+		entity: *EntityEventBus,
+		broadcast: *BroadcastEventBus,
+	}
 }
 
 function EntMgr:init()
@@ -63,6 +68,7 @@ local pCompConcept = #[concept(function(attr)
 end)]#
 
 function EntMgr:tryComp(TComp: type, uid: EntId)
+	## static_assert(TComp.value.id ~= Component.value.id, "attempt to get base Component")
 	local ent_comp_list = self:getEnt(uid)
 	for _,comp in ent_comp_list:each() do
 		if comp.typeid == TComp.typeid then

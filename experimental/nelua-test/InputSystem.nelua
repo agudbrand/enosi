@@ -1,14 +1,15 @@
 require "helpers"
 require "io"
 require "Event"
-require "FreeEventBus"
+require "BroadcastEventBus"
 
 global InputSystem = @record
 {
-	eventbus: *FreeEventBus,
+	eventbus: *BroadcastEventBus,
 }
 
-function InputSystem:init(free_event_bus: *FreeEventBus)
+function InputSystem:init(free_event_bus: *BroadcastEventBus)
+	assert(free_event_bus)
 	self.eventbus = free_event_bus
 end
 

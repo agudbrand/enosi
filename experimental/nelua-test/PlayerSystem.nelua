@@ -1,40 +1,64 @@
 require "helpers"
 require "Component"
 require "EntMgr"
-require "FreeEventBus"
+require "BroadcastEventBus"
 require "InputSystem"
+require "MoveSystem"
+require "MapMgr"
 
-global PlayerSystem = @record
+global EntSys.PlayerSystem = @record
 {
-	player: EntId,
-	entmgr: *EntMgr,
-	free_event_bus: *FreeEventBus,
+	player: EntId, 
+	free_event_bus: *BroadcastEventBus,
+	movesys: *EntSys.MoveSystem 
 }
 
+local PlayerSys = EntSys.PlayerSystem
+
+global Event.Attack = @record
+{
+	actor: EntId,
+	target: EntId,
+}
+
+## local subscribeToEntityEvent = EntSys.subscribeToEntityEvent
+## local subscribeToBroadcastEvent = EntSys.subscribeToBroadcastEvent
+## local raiseEntityEvent = EntSys.raiseEntityEvent
+## local raiseBroadcastEvent = EntSys.raiseBroadcastEvent
 ## helpers.using(Component)
 ## helpers.using(Event)
 
-function PlayerSystem:onKeyPressed(event: *KeyPressed)
-	print(event.key)
-end
-
-function PlayerSystem:init(
-		free_event_bus: *FreeEventBus,
-		entmgr: *EntMgr)
-
-	self.free_event_bus = free_event_bus
-	self.entmgr = entmgr
+function PlayerSys:init()
+	local entmgr = self.entmgr
 
 	-- spawn player entity
-	self.player = self.entmgr:newEntity()
+	self.player = entmgr:newEntity()
 	local cmplist = entmgr:getEnt(self.player)
 
 	local transform = entmgr:addComp(Transform)
 	local health = entmgr:addComp(Health)
+	health.val = 100
 
-	self.free_event_bus:subscribeTo(KeyPressed, self, PlayerSystem.onKeyPressed)
+	subscribeToEntityEvent!(Health, Attack, 
+		function(self, entid, comp, event)
+			print(self, entid)
+		end)
+
+	subscribeToBroadcastEvent!(KeyPressed, 
+		function(self, event)
+			print(event.key)
+			self.movesys:tryMove(self.player, {0,1})
+		end)
+
+	subscribeToBroadcastEvent!(MapRender,
+		function(self, event)
+			local entmgr = self.entmgr
+			local transform = entmgr:tryComp(Transform)
+
+			if event.pos == transform.pos then
+				event.icon = 'P'_u8
+			end
+		end)
 end
 
-## helpers.generateCreateFunc(PlayerSystem)
-
-
+## helpers.generateCreateFunc(PlayerSys)

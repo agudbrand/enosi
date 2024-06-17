@@ -1,5 +1,18 @@
 ## helpers = {}
 
+-- TODO(sushi) these would prob be better elsewhere
+global u8  = uint8
+global u16 = uint16
+global u32 = uint32
+global u64 = uint64
+global s8  = int8
+global s16 = int16
+global s32 = int32
+global s64 = int64
+global f32 = float32
+global f64 = float64
+global b8  = boolean
+
 global AutoPtrConcept = #[concept(function(attr)
 	if not attr.type.is_pointer then
 		return types.PointerType(attr.type)
@@ -7,8 +20,11 @@ global AutoPtrConcept = #[concept(function(attr)
 	return attr.type
 end)]#
 
-
 ##[[
+ccomment = function(x)
+	cemit("// "..x)
+end
+
 helpers.deferImpl = function(F)
 	after_analyze(hygienize(F))
 end

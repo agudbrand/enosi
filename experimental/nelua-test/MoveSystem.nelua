@@ -1,0 +1,73 @@
+--
+-- System for handling movement of mobs and the player
+--
+
+require "helpers"
+require "vec"
+require "Component"
+require "Event"
+require "EntMgr"
+require "EntSys"
+require "MapMgr"
+
+global EntSys.MoveSystem = @record 
+{
+	mapmgr: *MapMgr,
+}
+
+-- Raised on an entity that wants to move to 'dest'.
+global Event.TryMove = @record
+{
+	dest: vec2,
+	cancel: boolean,
+}
+
+-- Raised when an entity moves.
+global Event.Moved = @record
+{
+	oldpos: vec2,
+}
+
+local MoveSys = EntSys.MoveSystem
+
+## local subscribeToEntityEvent = EntSys.subscribeToEntityEvent
+## local subscribeToBroadcastEvent = EntSys.subscribeToBroadcastEvent
+## local raiseEntityEvent = EntSys.raiseEntityEvent
+## local raiseBroadcastEvent = EntSys.raiseBroadcastEvent
+## helpers.using(Event)
+## helpers.using(Component)
+
+-- Try to move the given entity to dest.
+-- If we're able to then the entities' Transform is updated
+-- to the given position.
+function MoveSys:tryMove(entid: EntId, dest: vec2): boolean
+	local transform = assert(self.entmgr:tryComp(Transform, entid))
+
+	-- check if we can physically be in that spot
+	local tile = self.mapmgr:getTile(dest)
+
+	if tile.kind == Tile.Kind.Wall then
+		return false
+	end
+
+	local attempt = (@TryMove) { dest, false }
+	raiseEntityEvent!(entid, attempt)
+
+	if attempt.cancel then
+		return false
+	end
+
+	-- actually perform the move and notify
+	local oldpos = transform.pos
+	transform.pos = dest
+
+	raiseEntityEvent!(entid, (@Moved) { oldpos })
+
+	return true
+end
+
+function MoveSys:init()
+end
+
+## helpers.generateCreateFunc(MoveSys)
+

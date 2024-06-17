@@ -1,0 +1,121 @@
+--
+-- Manages all instances of entity systems.
+--
+
+require "helpers"
+require "list"
+require "EntSys"
+
+## local deferImpl = helpers.deferImpl
+
+global EntSysMgr <forwarddecl> = @record {}
+
+##[[
+
+local getSysFieldSpelling = function(TSys)
+	if TSys.is_pointer then TSys = TSys.subtype end
+	return 'sys_'..TSys.codename
+end
+
+]]
+
+## deferImpl(function()
+	-- Once everything has been parsed, complete the EntSysMgr with entries
+	-- for each system.
+	EntSysMgr = @record{}
+
+	##[[
+		for _,TSys in pairs(EntSys.value.metafields) do
+			EntSysMgr.value:add_field(getSysFieldSpelling(TSys), types.PointerType(TSys.value))
+		end
+	]]
+	
+## end)
+
+-- Creates instances for all entity systems
+-- and ensures that all dependencies between them
+-- are satisfied.
+function EntSysMgr:init(...: varargs)
+## local args = {...}
+## deferImpl(function()
+
+	-- This could be abstracted even further into a MgrMgr that 
+	-- handles this. Primarily just cause I don't like updating 
+	-- the args to this init function (which is the sole reason I'm
+	-- making this to begin with, to avoid having to initialize 
+	-- each entity system by hand).
+	##[[
+		local argmap = {}
+
+		for _,arg in ipairs(args) do
+			local type = arg.attr.type
+			if type.is_pointer then
+				-- Only map from pointer types for now.
+				argmap[type] = arg[1]
+			end
+		end
+
+		local getArg = function(T) -- TODO(sushi) maybe just use builtin typeid if it works 
+			for TArg,arg in pairs(argmap) do
+				if TArg:is_equal(T) then
+					return arg
+				end
+			end
+		end
+	]]
+
+	-- Allocate all systems
+	## for _,field in ipairs(EntSysMgr.value.fields) do
+		self.#|field.name|# = new(#[field.type.subtype]#)
+	## end
+
+	-- Initialize the dependencies of each system.
+	## for _,sysfield in ipairs(EntSysMgr.value.fields) do
+		-- Iterate over the system's fields and figure out what stuff it needs.
+		local sys = self.#|sysfield.name|#
+
+		##[[
+			for _,field in ipairs(sysfield.type.subtype.fields) do
+				if field.type.is_pointer then
+					if field.type.subtype.is_entsys then
+						]]
+						sys.#|field.name|# = self.#|getSysFieldSpelling(field.type)|#
+						##[[
+					else
+						local arg = getArg(field.type)
+						if not arg then
+							io.write(
+								"warn: ", tostring(sysfield.type.subtype), " defines a dependency on ", tostring(field.type.subtype), " but one was not provided in ",
+								"call to EntSysMgr:init()\n")
+						else
+							]]
+							sys.#|field.name|# = #|arg|#
+							##[[
+						end
+					end
+				end
+			end
+		]]
+	## end
+
+	-- Call each system's init() if it has one
+	## for _,field in ipairs(EntSysMgr.value.fields) do
+		## if field.type.subtype.metafields.init then
+			self.#|field.name|#:init()
+		## end
+	## end
+## end)
+end
+
+## helpers.generateCreateFunc(EntSysMgr)
+
+-- Retrieve the system of a given type.
+function EntSysMgr:getSys(TSys: type)
+## deferImpl(function()
+	## assert(TSys.value.is_entsys)
+	return self.#|getSysFieldSpelling(TSys.value)|#
+## end)
+	-- need to trick the compiler into knowing this function returns a pointer to TSys
+	-- since the actual def of the function is deferred
+	return (@*TSys)(nilptr)
+end

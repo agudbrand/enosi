@@ -1,0 +1,76 @@
+-- 
+-- Simple broadcast event bus. Subscribers specify an event to be 
+-- notified of and a callback that handles said event.
+--
+
+require "helpers"
+require "pool"
+require "list"
+require "Event"
+require "SubList"
+
+## local deferImpl = helpers.deferImpl
+
+-- pointer to self and event
+local HandlerSig = @function(pointer, pointer): void
+
+local SubList = @SubListT(HandlerSig)
+
+##[[
+	local resolvePointer = function(TEvent)
+		if TEvent.is_pointer then TEvent =TEvent.subtype end
+		return TEvent
+	end
+
+	local getEventSubListFieldSpelling = function(TEvent)
+		TEvent = resolvePointer(TEvent)
+		return 'sublist_'..TEvent.codename
+	end
+
+	local getEventSubListField = function(TEvent)
+		TEvent = resolvePointer(TEvent)
+		local field = BroadcastEventBus.value.fields[getEventSubListFieldSpelling(TEvent)]
+		assert(field, "Type "..tostring(TEvent).." was not registered with the BroadcastEventBus!")
+		return field
+	end
+]]
+
+## deferImpl(function()
+	BroadcastEventBus = @record{}
+	##[[
+		for _,TEvent in pairs(Event.value.metafields) do
+			BroadcastEventBus.value:add_field(getEventSubListFieldSpelling(TEvent), SubList.value)
+		end
+	]]
+## end)
+
+function BroadcastEventBus:init()
+	## deferImpl(function()
+		## for _,field in ipairs(BroadcastEventBus.value.fields) do
+			self.#|field.name|#:init()
+		## end
+	## end)
+end
+
+## helpers.generateCreateFunc(BroadcastEventBus)
+
+function BroadcastEventBus:subscribeTo(TEvent: type, subscriber: pointer, handler: auto)
+	##[[
+		after_analyze(hygienize(function()
+			local field = getEventSubListField(TEvent.value)
+			local TArgs = handler.type.argtypes
+			assert(isEventPointer(TArgs[2]), "the final param of the handler must be a pointer to the event")
+			]]
+				self.#|field.name|#:sub(subscriber, (@#[HandlerSig]#)(handler))
+			##[[
+		end))
+	]]
+end
+
+function BroadcastEventBus:raise(event: AutoPtrConcept)
+	## deferImpl(function()
+		## local field = getEventSubListField(event.type)
+		self.#|field.name|#:raise(event)
+	## end)
+end
+

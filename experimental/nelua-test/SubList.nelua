@@ -1,0 +1,58 @@
+--
+-- List of subscribers along with their handler.
+--
+-- Generic on the signature of the event handler.
+-- The first argument of the handler is always assumed to be the 
+-- subscriber for now.
+--
+
+## local makeSubList = generalize(function(HandlerSig)
+	local HandlerSig = #[HandlerSig]#
+	
+	local Subscription = @record
+	{
+		subscriber: pointer,
+		handler: HandlerSig
+	}
+
+	local SubList = @record
+	{
+		pool: Pool(Subscription),
+		list: SList(Subscription),
+	}
+
+	function SubList:init()
+		self.pool:init()
+		self.list:init()
+	end
+
+	function SubList:sub(subscriber: pointer, handler: HandlerSig) <nodce>
+		local sub = self.pool:add()
+		sub.subscriber = subscriber
+		sub.handler = handler
+		self.list:push(sub)
+	end
+
+	-- TODO(sushi) I don't like using varargs here but its a lot easier than
+	--             trying to setup the manual AST creation due to what 
+	--             'for in' loops turn into.
+	--
+	--             Well apparently I can't even use the 'for in' here,
+	--             so maybe just make this more explicit later.
+	function SubList:raise(...: varargs)
+		-- Either I'm doing something wrong or Nelua's type inference is 
+		-- too weak to understand what 'sub' would be here, so I can't 
+		-- use the typical :each()
+		local iter = self.list.head
+		while iter do
+			local sub: *Subscription = iter.data
+			sub.handler(sub.subscriber, ...)
+			iter = iter.next
+		end
+	end
+
+	## return SubList
+## end)
+
+global SubListT = #[makeSubList]#
+
