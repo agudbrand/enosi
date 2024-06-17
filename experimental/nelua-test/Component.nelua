@@ -1,0 +1,63 @@
+require "helpers"
+
+global Component = @record
+{
+	-- rtti 
+	typeid: uint64
+} 
+
+## Component.count = -1
+## isComponent = function(T) return T.is_component end
+## isComponentPointer = function(T) return T.is_pointer and isComponent(T.subtype) end
+
+global pComponentConcept = #[concept(function(attr)
+	return isComponentPointer(attr.type), "a pointer to a Component is expected here"
+end)]#
+
+##[[
+
+local next_comp_typeid = 0
+
+helpers.makeInheritable(Component, function(childname, TChild)
+	Component.count = Component.count + 1
+
+	-- set that this type is a component
+	TChild.is_component = true
+
+	-- copy base fields
+	for i,field in ipairs(Component.value.fields) do
+		TChild:add_field(field.name, field.type, i)
+	end
+
+	]]
+		global #[TChild]#.typeid = #[Component.count]#
+
+		function #[TChild]#:init()
+			self.typeid = #[Component.count]#
+		end
+	##[[
+end)
+
+]]
+
+require "vec"
+
+global Rotation = @enum
+{
+	Deg0 = 0,
+	Deg90,
+	Deg180,
+	Deg270,
+}
+
+global Component.Transform = @record
+{
+	pos: vec2,
+	rot: Rotation,
+}
+
+global Component.Health = @record
+{
+	val: int8,
+}
+

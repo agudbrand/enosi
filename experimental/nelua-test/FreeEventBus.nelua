@@ -1,0 +1,123 @@
+require "helpers"
+require "pool"
+require "list"
+require "Event"
+
+## local deferImpl = helpers.deferImpl
+
+global FreeEventBus <forwarddecl> = @record {}
+
+-- pointer to self and event
+local HandlerSig = @function(pointer, pointer): void
+## local HandlerSig = HandlerSig
+
+local Subscription = @record
+{
+	subscriber: pointer,
+	handler: HandlerSig
+}
+
+local SubList = @record
+{
+	pool: Pool(Subscription),
+	list: SList(Subscription),
+}
+-- need to save this for the finalization of the FreeEventBus, as since this record is 
+-- local it wont be around by the time that happens (since that happens outside of this
+-- file, how goofy is that)
+## local SubList = SubList 
+
+function SubList:init()
+	self.pool:init()
+	self.list:init()
+end
+
+function SubList:sub(subscriber: pointer, handler: HandlerSig)
+	local sub = self.pool:add()
+	sub.subscriber = subscriber
+	sub.handler = handler
+	self.list:push(sub)
+end
+
+function SubList:emit(event: pointer)
+	for _,sub in self.list:each() do
+		sub.handler(sub.subscriber, event)
+	end
+end
+
+##[[
+	local resolvePointer = function(TEvent)
+		if TEvent.is_pointer then TEvent =TEvent.subtype end
+		return TEvent
+	end
+
+	local getEventSubListFieldSpelling = function(TEvent)
+		TEvent = resolvePointer(TEvent)
+		return 'sublist_'..TEvent.codename
+	end
+
+	local getEventSubListField = function(TEvent)
+		TEvent = resolvePointer(TEvent)
+		local field = FreeEventBus.value.fields[getEventSubListFieldSpelling(TEvent)]
+		assert(field, "Type "..tostring(TEvent).." was not registered with the FreeEventBus!")
+		return field
+	end
+]]
+
+## deferImpl(function()
+	FreeEventBus = @record{}
+
+	##[[
+		for _,TEvent in pairs(Event.value.metafields) do
+			FreeEventBus.value:add_field(getEventSubListFieldSpelling(TEvent), SubList.value)
+		end
+	]]
+## end)
+
+function FreeEventBus:init()
+	## deferImpl(function()
+		## for _,field in ipairs(FreeEventBus.value.fields) do
+			self.#|field.name|#:init()
+		## end
+	## end)
+end
+
+## helpers.generateCreateFunc(FreeEventBus)
+
+function FreeEventBus:subscribeTo(TEvent: type, subscriber: pointer, handler: auto)
+	##[[
+		after_analyze(hygienize(function()
+			local field = getEventSubListField(TEvent.value)
+			local TArgs = handler.type.argtypes
+			assert(isEventPointer(TArgs[2]), "the final param of the handler must be a pointer to the event")
+			]]
+				self.#|field.name|#:sub(subscriber, (@#[HandlerSig]#)(handler))
+			##[[
+		end))
+	]]
+end
+
+function FreeEventBus:raise(event: AutoPtrConcept)
+	## deferImpl(function()
+		## local field = getEventSubListField(event.type)
+		self.#|field.name|#:emit(event)
+	## end)
+end
+
+## finalized = false
+## finalizeFreeEventBus = function()
+	## assert(not finalized, "FreeEventBus has already been finalized!")
+	## finalized = true
+	-- ## local SubList = FreeEventBus.value.metafields.SubList
+
+--	function FreeEventBus:subscribeTo(TEvent: type, subscriber: pointer, handler: auto)
+--		## local field = getEventSubListField(TEvent.value)
+--		##[[
+--			local TArgs = handler.type.argtypes
+--			assert(isEventPointer(TArgs[2]), "the final param of the handler must be a pointer to the event")
+--		]]
+--		self.#|field.name|#:sub(subscriber, (@#[HandlerSig]#)(handler))
+--	end
+
+
+## end

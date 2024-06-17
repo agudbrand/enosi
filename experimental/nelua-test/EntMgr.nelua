@@ -1,0 +1,75 @@
+--
+-- Creator and manager of entities.
+--
+-- Owns all existing components and associates them with 
+-- entities.
+--
+
+require "helpers"
+require "list"
+require "pool"
+require "hashmap"
+require "Component"
+
+global EntityEventBus <forwarddecl> = @record {}
+
+global EntId = @uint64
+global CompList = @DList(Component)
+global EntityMap = @hashmap(EntId, CompList)
+
+## isEntId = function(T) return T.is_uint64 end
+
+global EntMgr = @record
+{
+	-- Linked list of components, which at the moment are 
+	-- just allocated by the gc allocator.
+	components: CompList,
+	entities: EntityMap,
+	next_ent_id: EntId,
+	eventbus: *EntityEventBus,
+}
+
+function EntMgr:init()
+	self.components:init()
+end
+
+## helpers.generateCreateFunc(EntMgr)
+
+function EntMgr:newEntity()
+	local id = self.next_ent_id
+	self.next_ent_id = id + 1
+	self.entities[id]:init()
+	return id
+end
+
+function EntMgr:getEnt(uid: EntId)
+	return assert(self.entities:peek(uid), "no entity with uid "..uid.." exists!")
+end
+
+function EntMgr:addComp(TComp: type, uid: EntId)
+	local ent_comp_list = self:getEnt(uid)
+	local comp = new(TComp)
+	comp:init()
+	ent_comp_list:pushHead((@*Component)(comp))
+	return comp
+end
+
+local pCompConcept = #[concept(function(attr)
+	if attr.type.is_pointer and
+	   attr.type.subtype.is_component
+	then
+		return true
+	end
+end)]#
+
+function EntMgr:tryComp(TComp: type, uid: EntId)
+	local ent_comp_list = self:getEnt(uid)
+	for _,comp in ent_comp_list:each() do
+		if comp.typeid == TComp.typeid then
+			return (@*TComp)(comp)
+		end
+	end
+	return nilptr
+end
+
+return EntMgr

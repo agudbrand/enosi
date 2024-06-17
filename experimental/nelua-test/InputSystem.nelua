@@ -1,0 +1,21 @@
+require "helpers"
+require "io"
+require "Event"
+require "FreeEventBus"
+
+global InputSystem = @record
+{
+	eventbus: *FreeEventBus,
+}
+
+function InputSystem:init(free_event_bus: *FreeEventBus)
+	self.eventbus = free_event_bus
+end
+
+## helpers.generateCreateFunc(InputSystem)
+
+global Event.KeyPressed = @record { key: int8 }
+
+function InputSystem:update()
+	self.eventbus:raise((@Event.KeyPressed){io.read(1)[1]})
+end
