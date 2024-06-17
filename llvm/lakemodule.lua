@@ -319,7 +319,7 @@ CMakeCache
 		end
 
 		local result = lake.cmd(
-			{ "cmake", "-G", "Ninja", cwd.."/src/llvm", args },
+			{ "cmake", "-G", "Unix Makefiles", cwd.."/src/llvm", args },
 			{
 				onStdout = io.write,
 				onStderr = io.write,
@@ -331,4 +331,6 @@ CMakeCache
 		end
 
 		lake.chdir(cwd)
+
+		lake.touch(CMakeCache.path)
 	end)
