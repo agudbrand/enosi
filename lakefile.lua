@@ -352,18 +352,16 @@ import "llvm"
 import "luajit"
 import "iro"
 import "lake"
-import "lppclang"
+-- import "lppclang"
 import "lpp"
-import "experimental/events"
-
-assert(reports.lake.executables[1], "lake's lakemodule did not report an executable")
--- assert(reports.lpp.executables[1], "lpp's lakemodule did not report an executable")
+-- import "experimental/events"
 
 -- clean build files of internal projects only, eg. not luajit and certainly not llvm
 lake.action("clean", function()
 	List{ "lpp", "iro", "lake", "lppclang" }:each(function(projname)
 		local cleaner = cleaners[projname]
 		if cleaner then
+			io.write("cleaning ", projname, "\n")
 			lake.chdir(cleaner[1])
 			cleaner[2]()
 			lake.chdir(cwd)
@@ -373,9 +371,10 @@ end)
 
 -- clean build files of internal and external projects, excluding llvm
 lake.action("clean-all", function()
-	List{ "lpp", "iro", "lake", "luajit" }:each(function(projname)
+	List{ "lpp", "iro", "lake", "luajit", "lppclang" }:each(function(projname)
 		local cleaner = cleaners[projname]
 		if cleaner then
+			io.write("cleaning ", projname, "\n")
 			lake.chdir(cleaner[1])
 			cleaner[2]()
 			lake.chdir(cwd)
