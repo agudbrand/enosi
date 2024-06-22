@@ -34,6 +34,8 @@
 
 					notcurses
 
+					ccache
+
 					# stuff needed to build llvm
 					cmake
 					ninja
