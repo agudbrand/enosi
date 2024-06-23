@@ -28,7 +28,7 @@ local compiler_flags = Twine.new
   "-std=c++20"
   -- "-Wall" someday
   "-Wno-switch"
-  "-fcolor-diagnostics"
+  -- "-fcolor-diagnostics"
   "-fno-caret-diagnostics"
   "-Wno-#warnings"
   "-Wno-return-type-c-linkage"
@@ -65,8 +65,7 @@ end
 local outputCapture = function()
   local o = {}
   o.s = ""
-  o.onStdout = function(s) o.s = o.s..s end
-  o.onStderr = function(s) o.s = o.s..s end
+  o.onRead = function(s) o.s = o.s..s end
   return o
 end
 
@@ -180,18 +179,16 @@ recipes.depfile = function(c_file, d_file, o_file, flags, filter)
       error("failed to create dep file '"..d_file.."':\n"..capture.s)
     end
 
-    result = assert(lake.replace(capture.s, "\\\n", ""))
-
     local out = ""
 
-    for f in result:gmatch("%S+") do
-      if f:sub(-1) ~= ":" then
+    for f in capture.s:gmatch("%S+") do
+      if f:sub(-1) ~= ":" and f ~= "\\" then
         if filter and filter(f) then
           goto continue
         end
         local canonical = lake.canonicalizePath(f)
         if not canonical then
-          error(
+          error("while generating depfile "..d_file..":\n"..
             "failed to canonicalize depfile path '"..f..
             "'! The file might not exist so I'll probably see this message "..
             "when I'm working with generated files and so should try and "..
@@ -421,7 +418,8 @@ do local argidx = 1
 
   cmds["clean-all"] = function()
     -- clean internal and external projects except llvm
-    List { "lpp", "iro", "lake", "lppclang", "luajit" }:each(tryClean)
+    List { "lpp", "iro", "lake", "lppclang", "luajit", "notcurses" }
+      :each(tryClean)
     return false
   end
 
