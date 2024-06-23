@@ -1,3 +1,2 @@
-cd lake/ 
-make mode=release -j8 &&
-cp makebuild/release/lake ../bin/lake
+make mode=release -j &&
+cp lake/makebuild/release/lake bin/lake
