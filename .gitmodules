@@ -16,3 +16,6 @@
 [submodule "llvm"]
 	path = llvm/src
 	url = https://github.com/llvm/llvm-project
+[submodule "notcurses/src"]
+	path = notcurses/src
+	url = https://github.com/dankamongmen/notcurses

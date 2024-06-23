@@ -33,6 +33,10 @@
 					nelua
 
 					notcurses
+          libunistring
+          libdeflate
+          doctest
+          ncurses
 
 					ccache
 

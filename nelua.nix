@@ -1,2 +1,0 @@
-{ runtimeShell }:
-makeWrapper(derivation {})

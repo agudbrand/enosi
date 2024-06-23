@@ -18,3 +18,5 @@ llvm/src
 lakeuser.lua
 
 experimental/events/build/
+
+notcurses/build/
