@@ -1,5 +1,8 @@
 local mode = lake.clivars.mode or "debug"
 
+local enosi = require "enosi"
+do return enosi.run() end
+
 local List = require "list"
 local Twine = require "twine"
 
@@ -46,6 +49,8 @@ end
 
 local linker_flags = Twine.new
   "-lexplain"
+  "-fuse-ld=mold"
+  "-fmessage-length=80"
 
 local reset = "\027[0m"
 local green = "\027[0;32m"
@@ -246,8 +251,11 @@ local getProjLibs = function(projname)
   assert(reports[projname],
     "report.getProjLibs called on a project ("..
     projname..") that has not been imported yet!")
+  local libdir =
+    assert(reports[projname].libDir[1], projname..
+           " does not specify a libdir!")
   return reports[projname].libs:map(function(e)
-    return reports[projname].libDir[1]..getOSStaticLibName(e)
+    return libdir..getOSStaticLibName(e)
   end)
 end
 
@@ -266,8 +274,7 @@ local initReportObject = function(projname)
     reports[projname][objtype] = reports[projname][objtype] or List()
     local tbl = reports[projname][objtype]
     return function(output)
-      assert(type(output) == "string",
-        "reported output is not a string")
+      assert(type(output) == "string", "reported output is not a string")
       if require_absolute then
         assert(output:sub(1,1) == "/",
           "reported output is not an absolute path")
@@ -291,7 +298,7 @@ local initReportObject = function(projname)
     -- Report libs that projects using this library should link against.
     -- These should be plain names of the lib, eg. report 'luajit' not
     -- 'libluajit.a'
-    lib = createReportFunction("libs", false)
+    lib = createReportFunction("libs", false),
   }
 end
 
@@ -316,59 +323,95 @@ local import = function(projname)
     error("attempt to import '"..projname.."' more than once.")
   end
 
-  lake.import(projname.."/lakemodule.lua",
-  {
-    mode = mode,
-    recipes = recipes,
-    usercfg = usercfg,
-    report = initReportObject(projname),
-    reports = reports,
-    registerCleaner = initCleanReportFunction(projname),
-    assertImported = function(...)
-      List{...}:each(function(name)
-        assert(imported_modules[name], 
-        "project '"..projname.."' requires '"..name..
-        "' to have been imported before it!")
+  local module = {}
+  module.name = projname
+  imported_modules[projname] = module
+
+  module.deps = List{}
+
+  local M = {}
+  module.M = M
+
+  M.mode = mode
+  M.recipes = recipes
+  M.usercfg = usercfg
+  M.report = initReportObject(projname)
+  M.reports = reports
+  M.force_clean = true
+  M.registerCleaner = initCleanReportFunction(projname)
+  M.assertImported = function(...)
+    List{...}:each(function(name)
+      assert(imported_modules[name]
+      "project '"..projname.."' requires '"..name..
+      "' to have been imported before it!")
+    end)
+  end
+  M.getOSStaticLibName = getOSStaticLibName
+  M.getProjLibs = getProjLibs
+  M.getProjIncludeDirFlags = function(...)
+    local out = List()
+    List{...}:each(function(name)
+      -- TODO(sushi) compiler specific include flagging though idk if 
+      --             any compiler uses a syntax other than this
+      reports[name].includeDirs:each(function(dir)
+        out:push("-I"..dir)
       end)
-    end,
-    force_clean = true,
-    getOSStaticLibName = getOSStaticLibName,
-    getProjLibs = getProjLibs,
-    getProjIncludeDirFlags = function(...)
-      local out = List()
-      List{...}:each(function(name)
-        -- TODO(sushi) compiler specific include flagging, though idk if 
-        --             any compiler uses a syntax other than this
-        reports[name].includeDirs:each(function(dir)
-          out:push("-I"..dir)
-        end)
+    end)
+    return out
+  end
+  M.getProjLibFlags = function(...)
+    local out = List()
+    List{...}:each(function(name)
+      reports[name].libs:each(function(lib)
+        out:push("-l"..lib)
       end)
-      return out
-    end,
-    getProjLibFlags = function(...)
-      local out = List()
-      List{...}:each(function(name)
-        reports[name].libs:each(function(lib)
-          out:push("-l"..lib)
-        end)
-      end)
-      return out
-    end,
-    getProjLibDirFlags = function(...)
-      local out = List()
-      List{...}:each(function(name)
-        out:push("-L"..reports[name].libDir[1])
-      end)
-      return out
-    end,
-    this_file = cwd.."/"..projname.."/lakemodule.lua"
-  })
+    end)
+    return out
+  end
+  M.getProjLibDirFlags = function(...)
+    local out = List()
+    List{...}:each(function(name)
+      local dir = reports[name].libDir[1]
+      if not dir then return end
+      out:push("-L"..dir)
+    end)
+    return out
+  end
+  -- report that this module depends on some other modules
+  M.dependsOnProj = function(...)
+    List{...}:each(function(mod)
+      assert(imported_modules[mod],
+        projname.." depends on "..mod.." but it has not been imported yet!")
+      module.deps:push(imported_modules[mod])
+    end)
+  end
+  M.getDependencyLinkerFlags = function()
+    local o = List{}
+    module.deps:each(function(mod)
+      o:push(mod.M.getDependencyLinkerFlags())
+      if reports[mod.name].libDir[1] then
+        o:push(M.getProjLibs(mod.name))
+        o:push(M.getProjLibDirFlags(mod.name))
+      end
+    end)
+    return o
+  end
+  M.getDependencyCompilerFlags = function()
+    local o = List{}
+    module.deps:each(function(mod)
+      o:push(mod.M.getDependencyCompilerFlags())
+      o:push(M.getProjIncludeDirFlags(mod.name))
+    end)
+    return o
+  end
+  M.this_file = cwd.."/"..projname.."/lakemodule.lua"
+
+  lake.import(projname.."/lakemodule.lua", M)
 
   if not cleaners[projname] then
     io.write("warn: ", projname, " did not register a clean function\n")
   end
 
-  imported_modules[projname] = true
 end
 
 assert(usercfg.projs, "lakeuser.lua does not specify any projects to build!")

@@ -1,13 +1,8 @@
-local options = assert(lake.getOptions())
+local enosi = require "enosi"
+local proj = enosi.thisProject()
 
-
-local List = require "list"
 local Twine = require "twine"
-
-local report = assert(options.report)
-local reports = assert(options.reports)
-local recipes = assert(options.recipes)
-
+local List = require "list"
 
 -- NOTE(sushi) these are NOT in a proper order for linking! 
 --             Currently I am just cheating and using --start/end-group to
@@ -257,28 +252,28 @@ local libs = Twine.new
 
 local cwd = lake.cwd()
 
-local usercfg = options.usercfg
-usercfg.llvm = usercfg.llvm or {}
+local user = enosi.getUser()
+user.llvm = user.llvm or {}
 
-local mode = usercfg.llvm.mode or "Release"
+local mode = user.llvm.mode or "Release"
 
-local builddir = cwd.."/build/"..mode
-
+local builddir = cwd.."/build/"..mode.."/"
 lake.mkdir(builddir, {make_parents = true})
 
-local libdir = builddir.."/lib"
-report.libDir(libdir)
+local libdir = builddir.."lib"
+proj:reportLibDir(libdir)
 
-local libsfull = libs:map(function(l) 
-  return libdir.."/"..options.getOSStaticLibName(l) 
+local libsfull = libs:map(function(l)
+  return libdir.."/"..enosi.getStaticLibName(l)
 end)
 
-report.includeDir(cwd.."/src/clang/include")
-report.includeDir(cwd.."/src/llvm/include")
-report.includeDir(builddir.."/include")
-report.includeDir(builddir.."/tools/clang/include")
+proj:reportIncludeDir(
+  cwd.."/src/clang/include",
+  cwd.."/src/llvm/include",
+  builddir.."/include",
+  builddir.."/tools/clang/include")
 
-libs:each(report.lib)
+libs:each(function(l) proj:reportStaticLib(l) end)
 
 local reset = "\027[0m"
 local green = "\027[0;32m"
@@ -287,61 +282,57 @@ local red   = "\027[0;31m"
 
 local CMakeCache = lake.target(builddir.."/CMakeCache.txt")
 
-reports.llvm.libsTarget = lake.targets(libsfull)
-	:dependsOn(CMakeCache)
-	:recipe(function()
-		lake.chdir(builddir)
+lake.targets(libsfull)
+  :dependsOn(CMakeCache)
+  :recipe(function()
+    lake.chdir(builddir)
 
-		local result =
-      lake.cmd(
-        { "make", "-j"..lake.getMaxJobs() },
-        { onStdout = io.write, onStderr = io.write, })
+    local result = lake.cmd(
+      { "make", "-j" }, { onRead = io.write })
 
-		if result ~= 0 then
-			io.write(red, "building llvm failed", reset, "\n")
-		end
-
-		lake.chdir(cwd)
-	end)
+    if result ~= 0 then
+      io.write(red, "building llvm failed\n", reset)
+    end
+  end)
 
 CMakeCache
-	:dependsOn(options.this_file)
-	:recipe(function()
-		lake.chdir(builddir)
+  :dependsOn(proj.path)
+  :recipe(function()
+    lake.chdir(builddir)
 
-		local args = List.new
-		{
+    local args = List
+    {
 			"-DLLVM_CCACHE_BUILD=ON",
 			"-DLLVM_OPTIMIZED_TABLEGEN=ON",
-			"-DLLVM_ENABLE_PROJECTS=clang",
+			"-DLLVM_ENABLE_PROJECTS=clang;lld",
 			"-DCMAKE_BUILD_TYPE="..mode,
-			"-DLLVM_USE_LINKER="..(usercfg.llvm.linker or "lld"),
+			"-DLLVM_USE_LINKER="..(user.llvm.linker or "lld"),
       -- TODO(sushi) job pooling is apparently only supported when using 
       --             Ninja, but Ninja was giving me problems with rebuilding
       --             everything everytime I changed something so try using it
       --             again later so this works.
-			"-DLLVM_PARALLEL_COMPILE_JOBS="..(usercfg.llvm.max_compile_jobs or lake.getMaxJobs()),
-			"-DLLVM_PARALLEL_LINK_JOBS="..(usercfg.llvm.max_link_jobs or lake.getMaxJobs()),
-			"-DLLVM_PARALLEL_TABLEGEN_JOBS="..(usercfg.llvm.max_tablegen_jobs or lake.getMaxJobs())
-		}
+			"-DLLVM_PARALLEL_COMPILE_JOBS="..
+        (user.llvm.max_compile_jobs or lake.getMaxJobs()),
+			"-DLLVM_PARALLEL_LINK_JOBS="..
+        (user.llvm.max_link_jobs or lake.getMaxJobs()),
+			"-DLLVM_PARALLEL_TABLEGEN_JOBS="..
+        (user.llvm.max_tablegen_jobs or lake.getMaxJobs())
+    }
 
-		if usercfg.llvm.shared then
-			args:push "-DBUILD_SHARED_LIBS=OFF"
-		end
+    if user.llvm.shared then
+      args:push "-DBUILD_SHARED_LIBS=OFF"
+    end
 
-		local result = lake.cmd(
-			{ "cmake", "-G", "Unix Makefiles", cwd.."/src/llvm", args },
-			{
-				onStdout = io.write,
-				onStderr = io.write,
-			})
+    local result = lake.cmd(
+      { "cmake", "-G", "Unix Makefiles", cwd.."/src/llvm", args },
+      { onRead = io.write })
 
-		if result ~= 0 then
-			io.write(red, "configuring cmake for llvm failed", reset, "\n")
-			return
-		end
+    if result ~= 0 then
+      io.write(red, "configuring cmake for llvm failed\n", reset)
+      return
+    end
 
-		lake.chdir(cwd)
+    lake.touch(CMakeCache.path)
+  end)
 
-		lake.touch(CMakeCache.path)
-	end)
+

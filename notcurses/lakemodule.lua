@@ -7,7 +7,6 @@ local report = assert(options.report)
 local reports = assert(options.reports)
 
 local libs = Twine.new
-  "notcurses"
   "notcurses-core"
 
 local cwd = lake.cwd()
@@ -19,11 +18,13 @@ local builddir = cwd.."/build/"
 lake.mkdir(builddir, {make_parents = true})
 
 report.libDir(builddir)
-report.includeDir(builddir.."include/")
+report.includeDir(cwd.."/src/include/")
 
 local libsfull = libs:map(function(l)
   return builddir.."/"..options.getOSStaticLibName(l)
 end)
+
+libs:each(report.lib)
 
 local CMakeCache = lake.target(builddir.."/CMakeCache.txt")
 
