@@ -12,6 +12,25 @@ local enosi = require "enosi"
 local List = require "list"
 local buffer = require "string.buffer"
 
+--- Helper for generating a command which sanitizes falsy values and 
+--- empty args.
+---
+--- An empty arg can cause weird behavior in some programs, particularly 
+--- bear, the program I use to generate my compile_commands.json.
+local cmdBuilder = function(...)
+  local out = List{}
+
+  List{...}:each(function(arg)
+    if arg then
+      if type(arg) ~= "string" or #arg ~= 0 then
+        out:push(arg)
+      end
+    end
+  end)
+
+  return out
+end
+
 --- Collection of drivers of various tools.
 local driver = {}
 
@@ -60,7 +79,7 @@ Cpp.new = function()
 end
 
 Cpp.makeCmd = function(self, proj)
-  local cmd = List{}
+  local cmd
   if "clang++" == enosi.c.compiler then
     local optmap =
     {
@@ -76,8 +95,7 @@ Cpp.makeCmd = function(self, proj)
       debug_flag = "-ggdb3"
     end
 
-    cmd:push
-    {
+    cmd = cmdBuilder(
       "clang++",
       "-c",
       "-Wno-#warnings",
@@ -103,8 +121,7 @@ Cpp.makeCmd = function(self, proj)
       --             properly with executables.
       "-fvisibility=hidden",
       "-o",
-      self.output
-    }
+      self.output)
   else
     error("Cpp driver not setup for compiler "..enosi.c.compiler)
   end
@@ -153,11 +170,10 @@ end
 ---@param proj Project
 Depfile.makeCmd = function(self, proj)
   proj:assert(self.input, "Depfile.makeCmd called on a driver with no input")
-  local cmd = List{}
+  local cmd
   local processFunc = nil
   if "clang++" == enosi.c.compiler then
-    cmd:push
-    {
+    cmd = cmdBuilder(
       "clang++",
       self.input,
       self.defines:map(function(d)
@@ -171,8 +187,7 @@ Depfile.makeCmd = function(self, proj)
         return "-I"..d
       end),
       "-MM",
-      "-MG",
-    }
+      "-MG")
 
     processFunc = function(file)
       local out = buffer.new()
@@ -237,10 +252,9 @@ Linker.new = function()
 end
 
 Linker.makeCmd = function(self, proj)
-  local cmd = List{}
+  local cmd
   if "clang++" == enosi.c.linker then
-    cmd:push
-    {
+    cmd = cmdBuilder(
       "clang++",
       "-fuse-ld=mold", -- TODO(sushi) remove eventually 
       self.inputs,
@@ -258,8 +272,7 @@ Linker.makeCmd = function(self, proj)
       "-Wl,--end-group",
       self.shared_lib and "-shared" or "",
       "-o",
-      self.output
-    }
+      self.output)
   else
     error("Linker driver not setup for linker "..enosi.c.linker)
   end
@@ -294,16 +307,12 @@ LuaObj.makeCmd = function(self, proj)
   proj:assert(self.input and self.output,
     "LuaObj.makeCmd called on a driver with a nil input or output")
 
-  cmd:push
-  {
+  return cmdBuilder(
     "luajit",
     "-b",
-    self.debug_info and "-g" or "",
+    self.debug_info and "-g",
     self.input,
-    self.output,
-  }
-
-  return cmd
+    self.output)
 end
 
 return driver

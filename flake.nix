@@ -32,11 +32,13 @@
 					luarocks
 					nelua
 
-					notcurses
+          notcurses
           libunistring
           libdeflate
           doctest
           ncurses
+
+          pkg-config
 
 					ccache
 
@@ -48,10 +50,22 @@
 					stdenv.cc.cc.lib
 				];
 
-				shellHook = ''
-					PATH=$PATH:~/enosi/bin
-					export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.explain.out}/lib
-				'';
+				shellHook = 
+        let
+          # tool that sets up dynamic library paths
+          libpath = with pkgs; lib.makeLibraryPath 
+          [
+            explain
+            acl
+            libunistring
+            libdeflate
+            ncurses
+            stdenv.cc.cc
+          ];
+        in 
+        '' 
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${libpath} 
+        '';
 			};
 		};
 }

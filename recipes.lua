@@ -146,10 +146,7 @@ recipes.depfile = function(driver, proj, ofile, dfile)
       error("failed to create dep file '"..dfile.."':\n"..capture.s:get())
     end
 
-    local cap = capture.s:get()
-    proj.log:error(cap, "\n")
-
-    local out = processFunc(cap)
+    local out = processFunc(capture.s:get())
 
     local fout = io.open(dfile, "w")
     proj:assert(fout, "failed to open dep file ", dfile, " for writing.")
