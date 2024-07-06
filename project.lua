@@ -69,6 +69,13 @@ Project.reportObjFile = function(self, ...)
   end)
 end
 
+Project.reportLuaObjFile = function(self, ...)
+  List{...}:each(function(ofile)
+    checkAbsolute(self, ofile)
+    self.artifacts.lua_obj_files:push(ofile)
+  end)
+end
+
 Project.reportExecutable = function(self, ...)
   List{...}:each(function(e)
     checkAbsolute(self, e)
@@ -130,6 +137,10 @@ Project.getLibs = function(self)
   end)
 end
 
+Project.getLuaObjFiles = function(self)
+  return self.artifacts.lua_obj_files
+end
+
 -- Collect all static lib files reported by this project and its dependencies.
 Project.collectStaticLibs = function(self)
   local libs = List{}
@@ -166,6 +177,20 @@ Project.collectObjFiles = function(self)
   end)
 
   files:push(self.artifacts.obj_files)
+
+  return files
+end
+
+--- Returns a list containing all of this project's lua obj files as well
+--- as any emitted by projects it depends on.
+Project.collectLuaObjFiles = function(self)
+  local files = List{}
+
+  self.deps.list:each(function(dep)
+    files:push(dep:collectLuaObjFiles())
+  end)
+
+  files:push(self.artifacts.lua_obj_files)
 
   return files
 end
@@ -218,6 +243,7 @@ end
 --- dependent modules may need to build correctly.
 ---@class Artifacts
 ---@field obj_files List
+---@field lua_obj_files List
 ---@field executables List
 ---@field shared_libs List
 ---@field static_libs List
@@ -228,6 +254,7 @@ local newArtifacts = function()
   return
   {
     obj_files = List{},
+    lua_obj_files = List{},
     executables = List{},
     shared_libs = List{},
     static_libs = List{},

@@ -1,4 +1,8 @@
 return
 {
-	ignoredDirs = {"llvm/src", "llvm/build"}
+	ignoredDirs =
+	{
+		"llvm/src",
+		"llvm/build"
+	}
 }
