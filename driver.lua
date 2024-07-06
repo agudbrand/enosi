@@ -65,6 +65,9 @@ end
 ---@field output string
 --- Disable building with C++'s builtin RTTI
 ---@field nortti boolean
+--- Force all symbols exposed to the dynamic table by default.
+--- Default is false.
+---@field export_all boolean
 local Cpp = makeDriver "Cpp"
 driver.Cpp = Cpp
 
@@ -119,7 +122,7 @@ Cpp.makeCmd = function(self, proj)
       --             dynamic symbols via iro's EXPORT_DYNAMIC and on clang
       --             defaulting this to hidden is required for that to work
       --             properly with executables.
-      "-fvisibility=hidden",
+      not self.export_all and "-fvisibility=hidden" or "",
       "-o",
       self.output)
   else
@@ -258,7 +261,6 @@ Linker.makeCmd = function(self, proj)
       "clang++",
       "-fuse-ld=mold", -- TODO(sushi) remove eventually 
       self.inputs,
-      "-flto",
       lake.flatten(self.libdirs):map(function(dir)
         return "-L"..dir
       end),
@@ -270,6 +272,9 @@ Linker.makeCmd = function(self, proj)
         return "-l:lib"..lib..".a"
       end),
       "-Wl,--end-group",
+      -- Expose all symbols so that lua obj file stuff is exposed and so that
+      -- things marked EXPORT_DYNAMIC are as well.
+      "-Wl,-E",
       self.shared_lib and "-shared" or "",
       "-o",
       self.output)
