@@ -39,6 +39,7 @@
           ncurses
 
           pkg-config
+          clangbuildanalyzer
 
 					ccache
 
