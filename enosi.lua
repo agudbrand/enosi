@@ -101,6 +101,29 @@ enosi.getUser = function()
   return usercfg
 end
 
+local argsParse = function(cmds)
+  local argidx = 1
+  local args = lake.cliargs
+
+  local iter = {}
+  iter.done    = function()  return not args[argidx] end
+  iter.current = function()  return args[argidx] end
+  iter.at      = function(x) return args[argidx] == x end
+  iter.peek    = function()  return args[argidx+1] end
+  iter.consume = function()  argidx = argidx + 1 return iter.current() end
+
+  while not iter.done() do
+    local cmd = cmds[iter.current()]
+    if not cmd then
+      error("unknown cmd '"..iter.current().."'")
+    end
+    if not cmd(iter) then
+      return false
+    end
+    iter.consume()
+  end
+end
+
 enosi.run = function()
   local Project = require "project"
 
@@ -108,6 +131,33 @@ enosi.run = function()
   -- Currently user config is requried to specify what projects to build but 
   -- eventually we should have a default list to fallback on.
   assert(usercfg.projects, "user.lua does not specify any projects to build!")
+
+  local tryClean = function(projname)
+    ---@type Project
+    local proj = imported_projects[projname]
+    if not proj.cleaner then return false end
+
+    proj.log:notice("running cleaner...\n")
+
+    lake.chdir(proj.cleaner[1])
+    proj.cleaner[2]()
+    lake.chdir(cwd)
+
+    return true
+  end
+
+  local allow_post_arg_processing = true
+
+  -- Pre-project-import arg processing
+  argsParse
+  {
+    ["release"] = function(iter)
+      enosi.mode = "release"
+      -- After projects are done being imported, rules for placing select
+      -- executables in the bin/ folder are made.
+      allow_post_arg_processing = false
+    end
+  }
 
   List(usercfg.projects):each(function(projname)
     assert(not imported_projects[projname],
@@ -129,66 +179,68 @@ enosi.run = function()
     lake.chdir(cwd)
   end)
 
-  -- Consume any args lake left us
-  do local argidx = 1
-    local args = lake.cliargs
-
-    local tryClean = function(projname)
-      ---@type Project
-      local proj = imported_projects[projname]
-      if not proj.cleaner then return false end
-
-      proj.log:notice("running cleaner...\n")
-
-      lake.chdir(proj.cleaner[1])
-      proj.cleaner[2]()
-      lake.chdir(cwd)
-
-      return true
-    end
-
-    local done    = function()  return not args[argidx] end
-    local current = function()  return args[argidx] end
-    local at      = function(x) return args[argidx] == x end
-    local peek    = function()  return args[argidx+1] end
-    local consume = function()  argidx = argidx + 1 return current() end
-
-    local cmds = {}
-
-    cmds["clean"] = function()
-      local proj = peek()
-      if proj then
-        consume()
-        -- clean specific project
-        if not tryClean(proj) then
-          error("'clean "..proj.."' specified but there's no cleaner "..
-          "registered for '"..proj.."'")
+  if enosi.mode == "release" then
+    local makeRules = function(...)
+      List{...}:each(function(projname)
+        local proj = enosi.getProject(projname)
+        if not proj then
+          error(
+            "project "..projname.." specified for release publish, but "..
+            "no project with this name has been registered.")
         end
-      else
-        -- clean internal projects
-        List { "lpp", "iro", "lake", "lppclang" }:each(tryClean)
-      end
-      return false
+
+        proj:getExecutables():each(function(exe)
+          local dest = cwd.."/bin/"..exe:match(".*/(.*)")
+          lake.target(dest)
+            :dependsOn(exe)
+            :recipe(function()
+              lake.copy(dest, exe)
+              local reset = "\027[0m"
+              local blue  = "\027[0;34m"
+              io.write(blue, dest, reset, "\n")
+            end)
+        end)
+      end)
     end
 
-    cmds["clean-all"] = function()
-      -- clean internal and external projects except llvm
-      List { "lpp", "iro", "lake", "lppclang", "luajit", "notcurses" }
-      :each(tryClean)
-      return false
-    end
+    makeRules(
+      -- can't really do lake here because lake will be running from the 
+      -- bin folder.. so.. need to replace this process with one that'll
+      -- do the copy which is quite complex and i dont feel like doing 
+      -- rn
+      -- "lake",
+      "elua")
+  end
 
-    while not done() do
-      local cmd = cmds[current()]
-      if not cmd then
-        error("unknown cmd '"..current().."'")
-      end
-      if not cmd() then
+  -- Post-project-import arg processing
+  -- This is dumb arg processing, clean up later
+  if allow_post_arg_processing then
+    argsParse
+    {
+      ["clean"] = function(iter)
+        local proj = iter.peek()
+        if proj then
+          iter.consume()
+          -- clean specific project
+          if not tryClean(proj) then
+            error("'clean "..proj.."' specified but there's no cleaner "..
+            "registered for '"..proj.."'")
+          end
+        else
+          -- clean internal projects
+          List { "lpp", "iro", "lake", "lppclang" }:each(tryClean)
+        end
+        return false
+      end,
+
+      ["clean-all"] = function()
+        -- clean internal and external projects except llvm
+        List { "lpp", "iro", "lake", "lppclang", "luajit", "notcurses" }
+          :each(tryClean)
         return false
       end
-      consume()
-    end
-  end -- arg processing
+    }
+  end
 end
 
 return enosi

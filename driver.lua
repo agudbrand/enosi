@@ -320,4 +320,30 @@ LuaObj.makeCmd = function(self, proj)
     self.output)
 end
 
+--- Driver for running standalone lua scripts using elua.
+--- This assumes release elua has been built and exists in enosi's bin folder.
+--- A driver is not reeeally necessary but doing so for consistency.
+---
+---@class LuaScript
+--- The lua script to run.
+---@field input string
+local LuaScript = makeDriver "LuaScript"
+driver.LuaScript = LuaScript
+
+---@return LuaScript
+LuaScript.new = function()
+  return setmetatable({}, LuaScript)
+end
+
+LuaScript.makeCmd = function(self, proj)
+  local cmd = List{}
+
+  proj:assert(self.input,
+    "LuaScript.makeCmd called on a driver with a nil input")
+
+    return cmdBuilder(
+      enosi.cwd.."/bin/elua",
+      self.input)
+end
+
 return driver

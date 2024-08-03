@@ -123,6 +123,12 @@ local getOSStaticLibName = function(s)
   end
 end
 
+--- Get a list of all executables reported by this project.
+---@return List
+Project.getExecutables = function(self)
+  return self.artifacts.executables
+end
+
 --- Get a list of absolute paths to all the shared libraries reported by this 
 --- project.
 ---@return List

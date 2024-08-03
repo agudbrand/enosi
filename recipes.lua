@@ -181,4 +181,32 @@ recipes.luaObjFile = function(driver, proj)
   end
 end
 
+--- Run a standalone lua script.
+---@param driver LuaScript
+---@param proj Project
+---@param output string | List the output(s) of this script invocation
+recipes.luaScript = function(driver, proj, output)
+  proj:assert(driver and proj and output,
+    "recipes.luaScript passed a nil driver, proj, or output")
+
+  local cmd = driver:makeCmd(proj)
+  local input = driver.input
+  local output = output
+
+  return function()
+    ensureDirExists(output)
+    local capture = outputCapture()
+    local result, time_took = timedCmd(cmd, capture)
+
+    if result == 0 then
+      -- TODO(sushi) handle multiple outputs eventually!
+      writeSuccessInputToOutput(input, output, time_took)
+    else
+      writeFailure(output)
+    end
+
+    io.write(capture.s:get())
+  end
+end
+
 return recipes
