@@ -20,3 +20,5 @@ lakeuser.lua
 experimental/events/build/
 
 notcurses/build/
+
+elua/build/

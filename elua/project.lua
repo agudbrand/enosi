@@ -53,6 +53,7 @@ lake.find("src/**/*.cpp"):each(function(cfile)
 end)
 
 elua:dependsOn(proj:collectObjFiles())
+elua:dependsOn(proj:collectLuaObjFiles())
 
 local link_driver = Driver.Linker.new()
 
