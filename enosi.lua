@@ -114,10 +114,7 @@ local argsParse = function(cmds)
 
   while not iter.done() do
     local cmd = cmds[iter.current()]
-    if not cmd then
-      error("unknown cmd '"..iter.current().."'")
-    end
-    if not cmd(iter) then
+    if cmd and cmd(iter) == false then
       return false
     end
     iter.consume()
@@ -149,7 +146,7 @@ enosi.run = function()
   local allow_post_arg_processing = true
 
   -- Pre-project-import arg processing
-  argsParse
+  local arg_result = argsParse
   {
     ["release"] = function(iter)
       enosi.mode = "release"
@@ -158,6 +155,7 @@ enosi.run = function()
       allow_post_arg_processing = false
     end
   }
+  if arg_result == false then return false end
 
   List(usercfg.projects):each(function(projname)
     assert(not imported_projects[projname],
@@ -215,7 +213,7 @@ enosi.run = function()
   -- Post-project-import arg processing
   -- This is dumb arg processing, clean up later
   if allow_post_arg_processing then
-    argsParse
+    local arg_result = argsParse
     {
       ["clean"] = function(iter)
         local proj = iter.peek()
@@ -240,6 +238,7 @@ enosi.run = function()
         return false
       end
     }
+    if arg_result == false then return false end
   end
 end
 
