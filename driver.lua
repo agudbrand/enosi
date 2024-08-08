@@ -170,6 +170,10 @@ Depfile.fromCpp = function(cpp)
   }, Depfile)
 end
 
+string.startsWith = function(self, s)
+  return self:sub(1, #s) == s
+end
+
 ---@param proj Project
 Depfile.makeCmd = function(self, proj)
   proj:assert(self.input, "Depfile.makeCmd called on a driver with no input")
@@ -196,17 +200,18 @@ Depfile.makeCmd = function(self, proj)
       local out = buffer.new()
 
       for f in file:gmatch("%S+") do
-        if f:sub(-1) == ":" or f == "\\" then
+        if f:sub(-1) == ":" or
+           f == "\\"
+        then
           goto continue
         end
 
         local canonical = lake.canonicalizePath(f)
+        if not f:startsWith "generated" then
           proj:assert(canonical,
             "while generating depfile for "..self.input..":\n"..
-            "failed to canonicalize depfile path '"..f..
-            "'! The file might not exist so I'll probably see this message "..
-            "when I'm working with generated files and so should try and "..
-            "handle this better then")
+            "failed to canonicalize depfile path '"..f)
+        end
         out:put(canonical, "\n")
         ::continue::
       end
