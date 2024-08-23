@@ -206,13 +206,13 @@ Depfile.makeCmd = function(self, proj)
           goto continue
         end
 
-        local canonical = lake.canonicalizePath(f)
         if not f:startsWith "generated" then
+          local canonical = lake.canonicalizePath(f)
           proj:assert(canonical,
             "while generating depfile for "..self.input..":\n"..
             "failed to canonicalize depfile path '"..f)
+          out:put(canonical, "\n")
         end
-        out:put(canonical, "\n")
         ::continue::
       end
 
