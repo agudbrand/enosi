@@ -8,6 +8,7 @@ return
     "notcurses",
     "luajit",
     "iro",
+    "elua",
     "lppclang",
     "lake",
     "lpp",
