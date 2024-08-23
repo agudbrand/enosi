@@ -4,8 +4,8 @@ all:
 	cd lake && ${MAKE} -j
 
 luajit:
-	mkdir luajit/lib
-	mkdir luajit/include
+	-mkdir luajit/lib
+	-mkdir luajit/include
 	cd luajit/src && \
 	${MAKE} clean && \
 	${MAKE} -j 
