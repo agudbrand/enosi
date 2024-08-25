@@ -7,5 +7,10 @@
 		"lpp/src/",
 		"iro/iro/lua/",
 	],
-	"workspace.ignoreDir": ["llvm"]
+	"workspace.ignoreDir": ["llvm"],
+  "diagnostics.disable":
+  [
+    "redefined-local",
+    "trailing-space"
+  ]
 }

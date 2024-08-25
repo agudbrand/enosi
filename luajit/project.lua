@@ -14,6 +14,7 @@ lake.mkdir(includedir)
 -- NOTE(sushi) this is needed just so we can create the proper target
 local lib = enosi.getStaticLibName("luajit")
 
+proj:reportIncludeDir(includedir)
 proj:reportStaticLib("luajit")
 proj:reportLibDir(libdir)
 

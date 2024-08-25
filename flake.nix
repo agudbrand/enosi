@@ -15,7 +15,6 @@
 				name = "enosienv";
 				buildInputs = with pkgs;
 				[
-					luajit
 					(callPackage ./impure-clang.nix {})
 					clang-tools
 					llvmPackages_17.libcxxClang
@@ -32,11 +31,11 @@
 					luarocks
 					nelua
 
-          notcurses
-          libunistring
-          libdeflate
-          doctest
-          ncurses
+          # notcurses
+          # libunistring
+          # libdeflate
+          # doctest
+          # ncurses
 
           pkg-config
           clangbuildanalyzer
@@ -66,6 +65,8 @@
         in 
         '' 
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${libpath} 
+          unset LUA_PATH
+          unset LUA_CPATH
         '';
 			};
 		};

@@ -10,7 +10,12 @@ luajit:
 	${MAKE} clean && \
 	${MAKE} -j 
 	cp luajit/src/src/libluajit.a luajit/lib
-	cp luajit/src/src/lua.h luajit/src/src/lualib.h luajit/src/src/lauxlib.h luajit/include
+	cp luajit/src/src/lua.h     \
+		 luajit/src/src/lualib.h  \
+		 luajit/src/src/lauxlib.h \
+		 luajit/src/src/luajit.h  \
+		 luajit/src/src/luaconf.h \
+		 luajit/include
 
 clean:
 	cd iro && ${MAKE} clean
