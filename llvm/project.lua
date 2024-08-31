@@ -275,6 +275,9 @@ proj:reportIncludeDir(
 
 libs:each(function(l) proj:reportStaticLib(l) end)
 
+local exedir = builddir.."bin"
+proj:reportExecutable(exedir.."/clang++")
+
 local reset = "\027[0m"
 local green = "\027[0;32m"
 local blue  = "\027[0;34m"
