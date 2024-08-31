@@ -8,14 +8,49 @@
 	outputs = { nixpkgs, ... }:
 		let
 			pkgs = nixpkgs.legacyPackages.x86_64-linux;
-		in
-		{
-			devShells.x86_64-linux.default = pkgs.mkShell
-			{
+      impure-clang = (pkgs.callPackage ./impure-clang.nix {});
+
+      typeOf = builtins.typeOf;
+
+      print-value = x:
+        let
+          cases = 
+          {
+            "bool" = if x then "true" else "false";
+            "string" = x;
+            "list" = pkgs.lib.concatStrings 
+              (map (e: (print-value e) + " ") x);
+            "set" = "set";
+            "path" = toString x;
+            "lambda" = "lambda";
+            "null" = "null";
+          };
+        in
+          cases."${typeOf x}"
+        ;
+
+      print-attrs = x:
+        pkgs.lib.concatStrings(
+          map 
+            (y: y + "\n" )
+            (builtins.attrNames x));
+
+      packages = with pkgs;
+      [
+        explain
+        acl
+        llvmPackages_17.libcxxClang
+      ];
+
+      shell = pkgs.mkShell
+      {
 				name = "enosienv";
 				buildInputs = with pkgs;
 				[
-					(callPackage ./impure-clang.nix {})
+          nodePackages.typescript-language-server
+          tree-sitter
+          nodejs
+					impure-clang
 					clang-tools
 					llvmPackages_17.libcxxClang
 					gnumake
@@ -48,6 +83,7 @@
 					# gcc
 					lld
 					stdenv.cc.cc.lib
+
 				];
 
 				shellHook = 
@@ -62,6 +98,8 @@
             ncurses
             stdenv.cc.cc
           ];
+          # includes = pkgs.lib.concatStrings
+          #   (map (x: x.dev + "/include ") packages);
         in 
         '' 
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${libpath} 
@@ -69,5 +107,8 @@
           unset LUA_CPATH
         '';
 			};
+		in
+		{
+			devShells.x86_64-linux.default = shell;
 		};
 }
