@@ -10,38 +10,6 @@
 			pkgs = nixpkgs.legacyPackages.x86_64-linux;
       impure-clang = (pkgs.callPackage ./impure-clang.nix {});
 
-      typeOf = builtins.typeOf;
-
-      print-value = x:
-        let
-          cases = 
-          {
-            "bool" = if x then "true" else "false";
-            "string" = x;
-            "list" = pkgs.lib.concatStrings 
-              (map (e: (print-value e) + " ") x);
-            "set" = "set";
-            "path" = toString x;
-            "lambda" = "lambda";
-            "null" = "null";
-          };
-        in
-          cases."${typeOf x}"
-        ;
-
-      print-attrs = x:
-        pkgs.lib.concatStrings(
-          map 
-            (y: y + "\n" )
-            (builtins.attrNames x));
-
-      packages = with pkgs;
-      [
-        explain
-        acl
-        llvmPackages_17.libcxxClang
-      ];
-
       shell = pkgs.mkShell
       {
 				name = "enosienv";
@@ -84,6 +52,13 @@
 					lld
 					stdenv.cc.cc.lib
 
+          xorg.libX11
+          xorg.libXrandr
+          xorg.libXcursor
+
+          pkg-config
+
+          python312Packages.glad2
 				];
 
 				shellHook = 
@@ -97,6 +72,10 @@
             libdeflate
             ncurses
             stdenv.cc.cc
+            xorg.libX11
+            xorg.libXrandr
+            xorg.libXcursor
+            
           ];
           # includes = pkgs.lib.concatStrings
           #   (map (x: x.dev + "/include ") packages);

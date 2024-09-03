@@ -207,7 +207,8 @@ enosi.run = function()
       -- do the copy which is quite complex and i dont feel like doing 
       -- rn
       -- "lake",
-      "elua")
+      "elua",
+      "lpp")
   end
 
   -- Post-project-import arg processing

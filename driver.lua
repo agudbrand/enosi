@@ -32,18 +32,19 @@ local cmdBuilder = function(...)
 end
 
 --- Collection of drivers of various tools.
-local driver = {}
+---@class Driver
+local Driver = {}
 
 local makeDriver = function(name)
-  driver[name] = {}
-  driver[name].__index = driver[name]
-  return driver[name]
+  Driver[name] = {}
+  Driver[name].__index = Driver[name]
+  return Driver[name]
 end
 
 --- Driver for C++ compilers. Compiles a single C++ file into 
 --- an object file.
 ---
----@class Cpp
+---@class Driver.Cpp
 --- The C++ std to use.
 ---@field std string
 --- The optimization to use. Default is 'none'.
@@ -69,9 +70,9 @@ end
 --- Default is false.
 ---@field export_all boolean
 local Cpp = makeDriver "Cpp"
-driver.Cpp = Cpp
+Driver.Cpp = Cpp
 
----@return Cpp
+---@return Driver.Cpp
 Cpp.new = function()
   return setmetatable(
   {
@@ -81,8 +82,9 @@ Cpp.new = function()
   }, Cpp)
 end
 
-Cpp.makeCmd = function(self, proj)
-  local cmd
+--- Generates the IO independent flags since these are now needed
+--- by both Lpp and Cpp
+local getCppIOIndependentFlags = function(self, proj)
   if "clang++" == enosi.c.compiler then
     local optmap =
     {
@@ -98,11 +100,8 @@ Cpp.makeCmd = function(self, proj)
       debug_flag = "-ggdb3"
     end
 
-    cmd = cmdBuilder(
-      "clang++",
-      "-c",
+    return cmdBuilder(
       "-Wno-#warnings",
-      self.input,
       "-std="..(self.std or "c++20"),
       self.nortti and "-fno-rtti" or "",
       opt,
@@ -122,9 +121,19 @@ Cpp.makeCmd = function(self, proj)
       --             dynamic symbols via iro's EXPORT_DYNAMIC and on clang
       --             defaulting this to hidden is required for that to work
       --             properly with executables.
-      not self.export_all and "-fvisibility=hidden" or "",
-      "-o",
-      self.output)
+      not self.export_all and "-fvisibility=hidden" or "")
+  end
+end
+
+Cpp.makeCmd = function(self, proj)
+  local cmd
+  if "clang++" == enosi.c.compiler then
+    cmd = cmdBuilder(
+      "clang++",
+      "-c",
+      self.input,
+      "-o", self.output,
+      getCppIOIndependentFlags(self, proj))
   else
     error("Cpp driver not setup for compiler "..enosi.c.compiler)
   end
@@ -147,7 +156,7 @@ end
 --- Path to the C++ file.
 ---@field input string
 local Depfile = makeDriver "Depfile"
-driver.Depfile = Depfile
+Driver.Depfile = Depfile
 
 ---@return Depfile
 Depfile.new = function()
@@ -159,7 +168,7 @@ Depfile.new = function()
 end
 
 --- Creates a Depfile driver from an existing Cpp driver.
----@param cpp Cpp
+---@param cpp Driver.Cpp
 ---@return Depfile
 Depfile.fromCpp = function(cpp)
   return setmetatable(
@@ -228,7 +237,7 @@ end
 --- Driver for linking object files and libraries into an executable or 
 --- shared library.
 ---
----@class Linker
+---@class Driver.Linker
 --- Libraries to link against. CURRENTLY these are wrapped in a group
 --- on Linux as I am still too lazy to figure out what the proper link order
 --- is for llvm BUT when I get to Windows I'll need to figure that out UGH
@@ -247,9 +256,9 @@ end
 --- The output file path
 ---@field output string
 local Linker = makeDriver "Linker"
-driver.Linker = Linker
+Driver.Linker = Linker
 
----@return Linker
+---@return Driver.Linker
 Linker.new = function()
   return setmetatable(
   {
@@ -301,7 +310,7 @@ end
 --- Whether to leave debug info (default ON)
 ---@field debug_info boolean
 local LuaObj = makeDriver "LuaObj"
-driver.LuaObj = LuaObj
+Driver.LuaObj = LuaObj
 
 ---@return LuaObj
 LuaObj.new = function()
@@ -333,7 +342,7 @@ end
 --- The lua script to run.
 ---@field input string
 local LuaScript = makeDriver "LuaScript"
-driver.LuaScript = LuaScript
+Driver.LuaScript = LuaScript
 
 ---@return LuaScript
 LuaScript.new = function()
@@ -346,9 +355,62 @@ LuaScript.makeCmd = function(self, proj)
   proj:assert(self.input,
     "LuaScript.makeCmd called on a driver with a nil input")
 
-    return cmdBuilder(
-      enosi.cwd.."/bin/elua",
-      self.input)
+  return cmdBuilder(
+    enosi.cwd.."/bin/elua",
+    self.input)
 end
 
-return driver
+--- Driver for compiling lpp files.
+---
+---@class Driver.Lpp
+--- The file to compile.
+---@field input string
+--- The file that will be output.
+---@field output string
+--- Require dirs
+---@field requires List
+--- The Cpp driver that will be used to build the resulting file.
+---@field cpp Driver.Cpp
+local Lpp = makeDriver "Lpp"
+Driver.Lpp = Lpp
+
+---@return Driver.Lpp
+Lpp.new = function()
+  return setmetatable(
+  {
+    requires = List{}
+  }, Lpp)
+end
+
+Lpp.makeCmd = function(self, proj)
+  local cmd = List{}
+
+  proj:assert(self.input and self.output, 
+    "Lpp.makeCmd called on a driver with a nil input or output")
+
+  proj:assert(self.cpp,
+    "Lpp.makeCmd called on a driver with a nil Cpp driver")
+
+  local cppargs = getCppIOIndependentFlags(self.cpp, proj)
+
+  local cargs = "--cargs="
+
+  lake.flatten(cppargs):each(function(arg)
+    cargs = cargs..arg..","
+  end)
+
+  local requires = List{}
+  self.requires:each(function(require)
+    requires:push("-R")
+    requires:push(require)
+  end)
+
+  return cmdBuilder(
+    enosi.cwd.."/bin/lpp",
+    self.input,
+    "-o", self.output,
+    cargs,
+    requires)
+end
+
+return Driver

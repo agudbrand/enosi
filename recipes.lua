@@ -61,7 +61,7 @@ end
 -- * ==========================================================================
 
 
----@param driver Linker
+---@param driver Driver.Linker
 ---@param proj Project
 recipes.linker = function(driver, proj)
   assert(driver and proj, "recipes.executable passed a nil input or output")
@@ -88,7 +88,7 @@ recipes.linker = function(driver, proj)
 end
 
 --- Compile a C source file into an object file.
----@param driver Cpp
+---@param driver Driver.Cpp
 ---@param proj Project
 recipes.objFile = function(driver, proj)
   assert(driver and proj, "recipes.objFile passed a nil driver or proj")
@@ -98,6 +98,35 @@ recipes.objFile = function(driver, proj)
     "recipes.objFile() called with a driver that has a nil input")
   local output = proj:assert(driver.output,
     "recipes.objFile() called with a driver that has a nil output")
+
+  return function()
+    ensureDirExists(output)
+    local capture = outputCapture()
+    local result, time_took = timedCmd(cmd, capture)
+
+    if result == 0 then
+      writeSuccessInputToOutput(input, output, time_took)
+    else
+      writeFailure(output)
+    end
+
+    io.write(capture.s:get())
+  end
+end
+
+--- Run lpp.
+---@param driver Driver.Lpp
+---@param proj Project
+recipes.lpp = function(driver, proj)
+  proj:assert(driver,
+    "recipes.lpp passed a nil driver")
+
+  local cmd = driver:makeCmd(proj)
+
+  local input = driver.input
+  local output = driver.output
+
+  lake.target(output):dependsOn(enosi.cwd.."/bin/lpp")
 
   return function()
     ensureDirExists(output)
