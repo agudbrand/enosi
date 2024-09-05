@@ -367,7 +367,7 @@ end
 ---@field input string
 --- The file that will be output.
 ---@field output string
---- Require dirs
+--- Require dirs.
 ---@field requires List
 --- The Cpp driver that will be used to build the resulting file.
 ---@field cpp Driver.Cpp
@@ -405,12 +405,78 @@ Lpp.makeCmd = function(self, proj)
     requires:push(require)
   end)
 
+  local includes = List{}
+  self.cpp.include_dirs:each(function(include)
+    includes:push("-I")
+    requires:push(include)
+  end)
+
   return cmdBuilder(
     enosi.cwd.."/bin/lpp",
     self.input,
     "-o", self.output,
     cargs,
     requires)
+end
+
+
+--- Driver for generating a depfile using lpp.
+---
+---@class Driver.LppDepFile
+--- The file to compile.
+---@field input string
+--- The file that will be output.
+---@field output string
+--- Require dirs.
+---@field requires List
+--- The Cpp driver that will be used to build the resulting file.
+---@field cpp Driver.Cpp
+local LppDepFile = makeDriver "LppDepFile"
+Driver.LppDepFile = LppDepFile
+
+LppDepFile.new = function()
+  return setmetatable(
+  {
+    requires = List{}
+  }, LppDepFile)
+end
+
+LppDepFile.makeCmd = function(self, proj)
+  local cmd = List{}
+
+  proj:assert(self.input and self.output, 
+    "LppDepFile.makeCmd called on a driver with a nil input or output")
+
+  proj:assert(self.cpp,
+    "LppDepFile.makeCmd called on a driver with a nil Cpp driver")
+
+  local cppargs = getCppIOIndependentFlags(self.cpp, proj)
+
+  local cargs = "--cargs="
+
+  lake.flatten(cppargs):each(function(arg)
+    cargs = cargs..arg..","
+  end)
+
+  local requires = List{}
+  self.requires:each(function(require)
+    requires:push("-R")
+    requires:push(require)
+  end)
+
+  local includes = List{}
+  self.cpp.include_dirs:each(function(include)
+    includes:push("-I")
+    requires:push(include)
+  end)
+
+  return cmdBuilder(
+    enosi.cwd.."/bin/lpp",
+    self.input,
+    cargs,
+    requires,
+    "-D",
+    self.output)
 end
 
 return Driver

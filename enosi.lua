@@ -227,14 +227,15 @@ enosi.run = function()
           end
         else
           -- clean internal projects
-          List { "lpp", "iro", "lake", "lppclang" }:each(tryClean)
+          List { "lpp", "iro", "lake", "lppclang", "ecs" }:each(tryClean)
         end
         return false
       end,
 
       ["clean-all"] = function()
         -- clean internal and external projects except llvm
-        List { "lpp", "iro", "lake", "lppclang", "luajit", "notcurses" }
+        List 
+          { "lpp", "iro", "lake", "lppclang", "ecs", "luajit", "notcurses" }
           :each(tryClean)
         return false
       end

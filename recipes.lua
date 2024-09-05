@@ -143,6 +143,44 @@ recipes.lpp = function(driver, proj)
   end
 end
 
+local makeDepsFromDepFile = function(path, ofile)
+  local existing_file = io.open(path, "r")
+
+  if existing_file then
+    local str = existing_file:read("*a")
+    for file in str:gmatch("%S+") do
+      lake.target(ofile):dependsOn(file)
+    end
+  end
+end
+
+--- Generate a dependency file from an lpp file.
+---@param driver Driver.LppDepFile
+---@param proj Project
+---@param ofile string
+---@param dfile string
+recipes.depfileLpp = function(driver, proj, ofile, dfile)
+  assert(driver and proj, "recipes.depfileLpp passed a nil driver or proj")
+
+  local cmd = driver:makeCmd(proj)
+
+  lake.target(ofile):dependsOn(dfile)
+
+  makeDepsFromDepFile(dfile, ofile)
+
+  return function()
+    ensureDirExists(dfile)
+    local capture = outputCapture()
+    local result = lake.cmd(cmd, capture)
+
+    if result ~= 0 then
+      error("failed to create dep file '"..dfile.."':\n"..capture.s:get())
+    end
+
+    io.write(capture.s:get())
+  end
+end
+
 --- Generate a dependency file from a C file.
 ---@param driver Depfile
 ---@param proj Project
@@ -152,19 +190,11 @@ recipes.depfile = function(driver, proj, ofile, dfile)
   assert(driver and proj, "recipes.depfile passed a nil driver or proj")
 
   local cmd, processFunc = driver:makeCmd(proj)
-  local cfile = driver.input
 
   lake.target(ofile):dependsOn(dfile)
 
   -- Try to load the depfile that may already exist
-  local existing_file = io.open(dfile, "r")
-
-  if existing_file then
-    local str = existing_file:read("*a")
-    for file in str:gmatch("%S+") do
-      lake.target(ofile):dependsOn(file)
-    end
-  end
+  makeDepsFromDepFile(dfile, ofile)
 
   return function()
     ensureDirExists(dfile)
