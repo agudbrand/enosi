@@ -159,7 +159,7 @@ end
 ---@param proj Project
 ---@param ofile string
 ---@param dfile string
-recipes.depfileLpp = function(driver, proj, ofile, dfile)
+recipes.depfileLpp = function(driver, proj, ofile, cfile, dfile)
   assert(driver and proj, "recipes.depfileLpp passed a nil driver or proj")
 
   local cmd = driver:makeCmd(proj)
@@ -167,6 +167,7 @@ recipes.depfileLpp = function(driver, proj, ofile, dfile)
   lake.target(ofile):dependsOn(dfile)
 
   makeDepsFromDepFile(dfile, ofile)
+  makeDepsFromDepFile(dfile, cfile)
 
   return function()
     ensureDirExists(dfile)
