@@ -40,4 +40,22 @@ class Path_printer:
         return s
 pp.add_printer("Path", r"^iro::fs::Path$", Path_printer)
 
+class vec2f_printer:
+    def __init__(self, val):
+        self.val = val
+
+    def to_string(self):
+        val = self.val
+        return f"({val['x']}, {val['y']})"
+pp.add_printer("vec2f", r"^vec2<float>$", vec2f_printer)
+
+class vec4f_printer:
+    def __init__(self, val):
+        self.val = val
+
+    def to_string(self):
+        val = self.val
+        return f"({val['x']}, {val['y']}, {val['z']}, {val['w']})"
+pp.add_printer("vec4f", r"^vec4<float>$", vec4f_printer)
+
 gdb.printing.register_pretty_printer(gdb.current_objfile(), pp)
