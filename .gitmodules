@@ -17,7 +17,7 @@
 [submodule "llvm"]
 	path = llvm/src
 	url = https://github.com/llvm/llvm-project
-	shallow = true
+	shallow = false
 [submodule "notcurses/src"]
 	path = notcurses/src
 	url = https://github.com/dankamongmen/notcurses
@@ -25,3 +25,5 @@
 [submodule "ecs"]
 	path = ecs
 	url = https://github.com/agudbrand/ecs
+[submodule "llvm/src"]
+	shallow = false
