@@ -14,10 +14,6 @@
 [submodule "lppclang"]
 	path = lppclang
 	url = https://github.com/e-sushi/lppclang
-[submodule "llvm"]
-	path = llvm/src
-	url = https://github.com/llvm/llvm-project
-	shallow = true
 [submodule "notcurses/src"]
 	path = notcurses/src
 	url = https://github.com/dankamongmen/notcurses
