@@ -13,8 +13,6 @@ luajit/include/
 
 temp/
 
-llvm/src
-
 lakeuser.lua
 
 experimental/events/build/
