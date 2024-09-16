@@ -15,7 +15,6 @@
 				name = "enosienv";
 				buildInputs = with pkgs;
 				[
-          nodePackages.typescript-language-server
           tree-sitter
           nodejs
 					impure-clang

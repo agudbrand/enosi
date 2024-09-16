@@ -51,7 +51,6 @@ local writeSuccessInputToOutput = function(input, output, time_took)
 end
 
 local writeFailure = function(output)
-  print(debug.traceback())
   io.write(red, "failed to build ", blue, output, reset, ":\n")
 end
 

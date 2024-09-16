@@ -11,6 +11,7 @@ local List = require "list"
 --             it doesnt seem like they have an equivalent, so I will need to take
 --             time to figure this out.. probably just involves looking at the makefiles
 --             that CMake generates for clang or maybe clang-check or whatever.
+-- This list can be generated from llvm/getlibs.sh
 local libs = Twine.new
   "LLVMBPFCodeGen"
   "LLVMDlltoolDriver"

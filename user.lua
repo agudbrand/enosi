@@ -1,16 +1,22 @@
 return
 {
-  max_jobs = 12,
+  max_jobs = 6,
 
   projects =
   {
     "llvm",
-    "notcurses",
+    -- "notcurses",
     "luajit",
     "iro",
     "elua",
     "lppclang",
     "lake",
     "lpp",
+    "ecs"
+  },
+
+  llvm = 
+  {
+    mode = "Debug",
   }
 }

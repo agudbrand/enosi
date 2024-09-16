@@ -415,6 +415,7 @@ Lpp.makeCmd = function(self, proj)
     enosi.cwd.."/bin/lpp",
     self.input,
     "-o", self.output,
+    -- "--print-meta",
     cargs,
     requires)
 end
