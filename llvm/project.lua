@@ -303,7 +303,7 @@ lake.targets(libsfull)
     lake.chdir(builddir)
 
     local result = lake.cmd(
-      { "make", "-j" }, { onRead = io.write })
+      { "make", "-j6" }, { onRead = io.write })
 
     if result ~= 0 then
       io.write(red, "building llvm failed\n", reset)

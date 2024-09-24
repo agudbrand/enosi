@@ -17,6 +17,6 @@ return
 
   llvm = 
   {
-    mode = "Debug",
+    mode = "Release",
   }
 }

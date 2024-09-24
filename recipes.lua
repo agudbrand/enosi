@@ -125,6 +125,16 @@ recipes.lpp = function(driver, proj)
   local input = driver.input
   local output = driver.output
 
+  local printCmd = function()
+    local out = ""
+    lake.flatten(cmd):each(function(arg)
+      out = out..arg.." "
+    end)
+    print(out)
+  end
+
+  -- printCmd()
+
   lake.target(output):dependsOn(enosi.cwd.."/bin/lpp")
 
   return function()
@@ -163,6 +173,16 @@ recipes.depfileLpp = function(driver, proj, ofile, cfile, dfile)
 
   local cmd = driver:makeCmd(proj)
 
+  local printCmd = function()
+    local out = ""
+    lake.flatten(cmd):each(function(arg)
+      out = out..arg.." "
+    end)
+    print(out)
+  end
+
+  -- printCmd()
+
   lake.target(ofile):dependsOn(dfile)
 
   makeDepsFromDepFile(dfile, ofile)
@@ -174,7 +194,7 @@ recipes.depfileLpp = function(driver, proj, ofile, cfile, dfile)
     local result = lake.cmd(cmd, capture)
 
     if result ~= 0 then
-      error("failed to create dep file '"..dfile.."':\n"..capture.s:get())
+      writeFailure(dfile)
     end
 
     io.write(capture.s:get())

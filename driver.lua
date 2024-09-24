@@ -5,7 +5,8 @@
 --- This abstracts common options between different compilers and such 
 --- so that enosi projects may avoid directly specifying compiler commands.
 ---
---- Named after the clang Driver.
+--- Named after the clang Driver, though this does the opposite of what it
+--- does (I think).
 ---
 
 local enosi = require "enosi"
@@ -371,6 +372,8 @@ end
 ---@field requires List
 --- The Cpp driver that will be used to build the resulting file.
 ---@field cpp Driver.Cpp
+--- Optional path to output a metafile to.
+---@field metafile string
 local Lpp = makeDriver "Lpp"
 Driver.Lpp = Lpp
 
@@ -411,11 +414,17 @@ Lpp.makeCmd = function(self, proj)
     requires:push(include)
   end)
 
+  local metafile
+  if self.metafile then
+    metafile = { "-om", self.metafile }
+  end
+
   return cmdBuilder(
     enosi.cwd.."/bin/lpp",
     self.input,
     "-o", self.output,
     -- "--print-meta",
+    metafile,
     cargs,
     requires)
 end
@@ -475,6 +484,7 @@ LppDepFile.makeCmd = function(self, proj)
     enosi.cwd.."/bin/lpp",
     self.input,
     cargs,
+    -- "--print-meta",
     requires,
     "-D",
     self.output)
