@@ -132,7 +132,7 @@ enosi.run = function()
   local tryClean = function(projname)
     ---@type Project
     local proj = imported_projects[projname]
-    if not proj.cleaner then return false end
+    if not proj or not proj.cleaner then return false end
 
     proj.log:notice("running cleaner...\n")
 
