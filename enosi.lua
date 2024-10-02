@@ -46,7 +46,7 @@ enosi.c.cflags = Twine.new
   -- "-Wall" someday
   "-Wno-switch"
   -- "-fcolor-diagnostics"
-  "-fno-caret-diagnostics"
+  -- "-fno-caret-diagnostics"
   "-Wno-#warnings"
   "-Wno-return-type-c-linkage"
   "-fmessage-length=80"
