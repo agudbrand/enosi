@@ -6,7 +6,7 @@
 		"lake/src/lake.lua",
 		"lpp/src/",
 		"iro/iro/lua/",
-    "ecs/",
+    "ecs/src",
 	],
 	"workspace.ignoreDir": ["llvm"],
   "diagnostics.disable":
