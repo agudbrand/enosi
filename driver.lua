@@ -122,7 +122,8 @@ local getCppIOIndependentFlags = function(self, proj)
       --             dynamic symbols via iro's EXPORT_DYNAMIC and on clang
       --             defaulting this to hidden is required for that to work
       --             properly with executables.
-      not self.export_all and "-fvisibility=hidden" or "")
+      not self.export_all and "-fvisibility=hidden" or ""),
+      "-fpatchable-function-entry=16"
   end
 end
 
@@ -414,6 +415,9 @@ Lpp.makeCmd = function(self, proj)
     requires:push(include)
   end)
 
+  --- Used inside ECS to output UI widget use files.
+  local cpp_path = "--cpp-path="..self.output
+
   local metafile
   if self.metafile then
     metafile = { "-om", self.metafile }
@@ -424,6 +428,7 @@ Lpp.makeCmd = function(self, proj)
     self.input,
     "-o", self.output,
     -- "--print-meta",
+    cpp_path,
     metafile,
     cargs,
     requires)
