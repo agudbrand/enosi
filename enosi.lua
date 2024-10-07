@@ -153,6 +153,14 @@ enosi.run = function()
       -- After projects are done being imported, rules for placing select
       -- executables in the bin/ folder are made.
       allow_post_arg_processing = false
+    end,
+    ["patch"] = function(iter)
+      local n = iter.consume()
+      n = tonumber(n)
+      if not n then
+        error("expected number after 'patch' command")
+      end
+      enosi.patch = n
     end
   }
   if arg_result == false then return false end
@@ -227,7 +235,8 @@ enosi.run = function()
           end
         else
           -- clean internal projects
-          List { "lpp", "iro", "lake", "lppclang", "ecs" }:each(tryClean)
+          List { "lpp", "iro", "lake", "lppclang", "ecs", "hreload" }:
+            each(tryClean)
         end
         return false
       end,
@@ -235,8 +244,17 @@ enosi.run = function()
       ["clean-all"] = function()
         -- clean internal and external projects except llvm
         List 
-          { "lpp", "iro", "lake", "lppclang", "ecs", "luajit", "notcurses" }
-          :each(tryClean)
+        { 
+          "lpp", 
+          "iro", 
+          "lake", 
+          "lppclang", 
+          "ecs", 
+          "hreload", 
+          "luajit", 
+          "notcurses" 
+        }
+        :each(tryClean)
         return false
       end
     }

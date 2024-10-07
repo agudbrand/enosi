@@ -9,6 +9,7 @@ return
     "luajit",
     "iro",
     "elua",
+    "hreload",
     "lppclang",
     "lake",
     "lpp",
