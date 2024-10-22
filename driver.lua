@@ -122,8 +122,8 @@ local getCppIOIndependentFlags = function(self, proj)
       --             dynamic symbols via iro's EXPORT_DYNAMIC and on clang
       --             defaulting this to hidden is required for that to work
       --             properly with executables.
-      not self.export_all and "-fvisibility=hidden" or ""),
-      "-fpatchable-function-entry=16"
+      "-fpatchable-function-entry=16",
+      not self.export_all and "-fvisibility=hidden" or "")
   end
 end
 
@@ -257,6 +257,13 @@ end
 ---@field shared_lib boolean
 --- The output file path
 ---@field output string
+--- Path to consider loading shared libraries from hardcoded into the 
+--- executable (at least on Linux, I don't know if Windows has an option
+--- for this yet). Used to avoid needing to add a project's build dir or 
+--- whatever in the LD_LIBRARY_PATH env var. We should find a better solution
+--- for this, as it will be using absolute paths to point the exe at the 
+--- correct 
+---@field rpath string
 local Linker = makeDriver "Linker"
 Driver.Linker = Linker
 
@@ -292,6 +299,8 @@ Linker.makeCmd = function(self, proj)
       -- things marked EXPORT_DYNAMIC are as well.
       "-Wl,-E",
       self.shared_lib and "-shared" or "",
+      -- Tell the executable to search its directory for libs to load.
+      "-Wl,-rpath,$ORIGIN",
       "-o",
       self.output)
   else

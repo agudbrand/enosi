@@ -173,17 +173,27 @@ Project.collectSharedLibs = function(self)
   return libs
 end
 
+---@param proj Project
+local function collectObjFiles(proj, files, projset)
+  proj.deps.list:each(function(dep)
+    collectObjFiles(dep, files, projset)
+  end)
+
+  if projset[proj.name] then
+    return
+  end
+
+  projset[proj.name] = true
+
+  files:push(proj.artifacts.obj_files)
+end
+
 --- Returns a list containing all of this project's obj files as well
 --- as any emitted by projects it depends on.
 Project.collectObjFiles = function(self)
   local files = List{}
-
-  self.deps.list:each(function(dep)
-    files:push(dep:collectObjFiles())
-  end)
-
-  files:push(self.artifacts.obj_files)
-
+  local projset = {}
+  collectObjFiles(self, files, projset)
   return files
 end
 
