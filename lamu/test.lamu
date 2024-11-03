@@ -1,0 +1,9 @@
+add := (x; y) => x + y;
+
+vec2 := struct(x: f32; y: f32);
+
+a: vec2;
+
+x := add(1;2);
+
+x;
