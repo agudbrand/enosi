@@ -123,7 +123,8 @@ local getCppIOIndependentFlags = function(self, proj)
       --             defaulting this to hidden is required for that to work
       --             properly with executables.
       "-fpatchable-function-entry=16",
-      not self.export_all and "-fvisibility=hidden" or "")
+      not self.export_all and "-fvisibility=hidden" or "",
+      "-fstandalone-debug")
   end
 end
 

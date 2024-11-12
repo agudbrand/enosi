@@ -98,6 +98,16 @@ recipes.objFile = function(driver, proj)
   local output = proj:assert(driver.output,
     "recipes.objFile() called with a driver that has a nil output")
 
+  local printCmd = function()
+    local out = ""
+    lake.flatten(cmd):each(function(arg)
+      out = out..arg.." "
+    end)
+    print(out)
+  end
+
+  -- printCmd()
+
   return function()
     ensureDirExists(output)
     local capture = outputCapture()

@@ -6,6 +6,7 @@ all:
 luajit:
 	-mkdir luajit/lib
 	-mkdir luajit/include
+	-mkdir luajit/obj
 	cd luajit/src && \
 	${MAKE} clean && \
 	${MAKE} -j 
@@ -16,6 +17,7 @@ luajit:
 		 luajit/src/src/luajit.h  \
 		 luajit/src/src/luaconf.h \
 		 luajit/include
+	ar -x luajit/lib/libluajit.a --output=luajit/obj
 
 clean:
 	cd iro && ${MAKE} clean

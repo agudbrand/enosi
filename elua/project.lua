@@ -10,7 +10,7 @@ local builddir = cwd.."/build/"..mode.."/"
 lake.mkdir(builddir, {make_parents=true})
 
 proj:setCleaner(function()
-  lake.rm(builddir, {recursive=true,force=true})
+  lake.rm(cwd.."/build", {recursive=true,force=true})
 end)
 
 proj:dependsOn("iro")
