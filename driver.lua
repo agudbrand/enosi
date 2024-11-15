@@ -385,6 +385,8 @@ end
 ---@field cpp Driver.Cpp
 --- Optional path to output a metafile to.
 ---@field metafile string
+--- Optional path to output a depfile to.
+---@field depfile string
 local Lpp = makeDriver "Lpp"
 Driver.Lpp = Lpp
 
@@ -433,6 +435,11 @@ Lpp.makeCmd = function(self, proj)
     metafile = { "-om", self.metafile }
   end
 
+  local depfile
+  if self.depfile then
+    depfile = { "-D", self.depfile }
+  end
+
   return cmdBuilder(
     enosi.cwd.."/bin/lpp",
     self.input,
@@ -440,6 +447,7 @@ Lpp.makeCmd = function(self, proj)
     -- "--print-meta",
     cpp_path,
     metafile,
+    depfile,
     cargs,
     requires)
 end

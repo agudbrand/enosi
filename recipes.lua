@@ -123,6 +123,17 @@ recipes.objFile = function(driver, proj)
   end
 end
 
+local makeDepsFromDepFile = function(path, ofile)
+  local existing_file = io.open(path, "r")
+
+  if existing_file then
+    local str = existing_file:read("*a")
+    for file in str:gmatch("%S+") do
+      lake.target(ofile):dependsOn(file)
+    end
+  end
+end
+
 --- Run lpp.
 ---@param driver Driver.Lpp
 ---@param proj Project
@@ -145,6 +156,11 @@ recipes.lpp = function(driver, proj)
 
   -- printCmd()
 
+  if driver.depfile then
+    makeDepsFromDepFile(driver.depfile, driver.cpp.output)
+    makeDepsFromDepFile(driver.depfile, driver.cpp.input)
+  end
+
   lake.target(output):dependsOn(enosi.cwd.."/bin/lpp")
 
   return function()
@@ -159,17 +175,6 @@ recipes.lpp = function(driver, proj)
     end
 
     io.write(capture.s:get())
-  end
-end
-
-local makeDepsFromDepFile = function(path, ofile)
-  local existing_file = io.open(path, "r")
-
-  if existing_file then
-    local str = existing_file:read("*a")
-    for file in str:gmatch("%S+") do
-      lake.target(ofile):dependsOn(file)
-    end
   end
 end
 
