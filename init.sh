@@ -70,63 +70,63 @@ fi
 if [ $platform == "win32" ]; then
   mkdir -p "__temp/"
   
-  #vcvars_path=""
-  #if [ -e "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional" ]; then
-  #  vcvars_path="C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat"
-  #elif [ -e "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community" ]; then
-  #  vcvars_path="C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat"
-  #elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional" ]; then
-  #  vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat"
-  #elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community" ]; then
-  #  vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat"
-  #elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Professional" ]; then
-  #  vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat"
-  #elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community" ]; then
-  #  vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat"
-  #elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio 14.0" ]; then
-  #  vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC\\vcvars64.bat"
-  #elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio 13.0" ]; then
-  #  vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio 13.0\\VC\\vcvars64.bat"
-  #elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio 12.0" ]; then
-  #  vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio 12.0\\VC\\vcvars64.bat"
-  #elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio 11.0" ]; then
-  #  vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio 11.0\\VC\\vcvars64.bat"
-  #elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio 10.0" ]; then
-  #  vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio 10.0\\VC\\vcvars64.bat"
-  #else
-  #  echo "Failed to find cl.exe; install Visual Studio in order to build on Windows."
-  #  exit 1
-  #fi
+  vcvars_path=""
+  if [ -e "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional" ]; then
+    vcvars_path="C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat"
+  elif [ -e "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community" ]; then
+    vcvars_path="C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat"
+  elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional" ]; then
+    vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat"
+  elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community" ]; then
+    vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat"
+  elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Professional" ]; then
+    vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat"
+  elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community" ]; then
+    vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat"
+  elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio 14.0" ]; then
+    vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC\\vcvars64.bat"
+  elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio 13.0" ]; then
+    vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio 13.0\\VC\\vcvars64.bat"
+  elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio 12.0" ]; then
+    vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio 12.0\\VC\\vcvars64.bat"
+  elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio 11.0" ]; then
+    vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio 11.0\\VC\\vcvars64.bat"
+  elif [ -e "C:\\Program Files (x86)\\Microsoft Visual Studio 10.0" ]; then
+    vcvars_path="C:\\Program Files (x86)\\Microsoft Visual Studio 10.0\\VC\\vcvars64.bat"
+  else
+    echo "Failed to find cl.exe; install Visual Studio in order to build on Windows."
+    exit 1
+  fi
   
-  #build_luajit_bat="
-  #  call \"${vcvars_path}\"
-  #  pushd \"luajit/src/src\"
-  #  call \"msvcbuild.bat\"
-  #  popd
-  #  if not exist \"luajit/lib\" mkdir \"luajit/lib\"
-  #  mv \"luajit/src/src/buildvm.exp\" \"luajit/lib/buildvm.exp\"
-  #  mv \"luajit/src/src/buildvm.lib\" \"luajit/lib/buildvm.lib\"
-  #  mv \"luajit/src/src/lua51.dll\" \"luajit/lib/lua51.dll\"
-  #  mv \"luajit/src/src/lua51.exp\" \"luajit/lib/lua51.exp\"
-  #  mv \"luajit/src/src/lua51.lib\" \"luajit/lib/lua51.lib\"
-  #  mv \"luajit/src/src/lua51.pdb\" \"luajit/lib/lua51.pdb\"
-  #  mv \"luajit/src/src/luajit.exe\" \"luajit/lib/luajit.exe\"
-  #  mv \"luajit/src/src/luajit.exp\" \"luajit/lib/luajit.exp\"
-  #  mv \"luajit/src/src/luajit.lib\" \"luajit/lib/luajit.lib\"
-  #  mv \"luajit/src/src/luajit.pdb\" \"luajit/lib/luajit.pdb\"
-  #  mv \"luajit/src/src/minilua.exp\" \"luajit/lib/minilua.exp\"
-  #  mv \"luajit/src/src/minilua.lib\" \"luajit/lib/minilua.lib\"
-  #  mv \"luajit/src/src/vc140.pdb\" \"luajit/lib/vc140.pdb\"
-  #  if not exist \"luajit/include\" mkdir \"luajit/include\"
-  #  cp \"luajit/src/src/lua.h\" \"luajit/include/lua.h\"
-  #  cp \"luajit/src/src/lualib.h\" \"luajit/include/lualib.h\"
-  #  cp \"luajit/src/src/lauxlib.h\" \"luajit/include/lauxlib.h\"
-  #  cp \"luajit/src/src/luajit.h\" \"luajit/include/luajit.h\"
-  #  cp \"luajit/src/src/luaconf.h\" \"luajit/include/luaconf.h\"
-  #"
-  #echo "${build_luajit_bat}" >> "__temp/build_luajit.bat"
-  #cmd.exe //Q //V //C "__temp\\build_luajit.bat"
-  #rm "__temp/build_luajit.bat"
+  build_luajit_bat="
+    call \"${vcvars_path}\"
+    pushd \"luajit/src/src\"
+    call \"msvcbuild.bat\"
+    popd
+    if not exist \"luajit/lib\" mkdir \"luajit/lib\"
+    mv \"luajit/src/src/buildvm.exp\" \"luajit/lib/buildvm.exp\"
+    mv \"luajit/src/src/buildvm.lib\" \"luajit/lib/buildvm.lib\"
+    mv \"luajit/src/src/lua51.dll\" \"luajit/lib/lua51.dll\"
+    mv \"luajit/src/src/lua51.exp\" \"luajit/lib/lua51.exp\"
+    mv \"luajit/src/src/lua51.lib\" \"luajit/lib/lua51.lib\"
+    mv \"luajit/src/src/lua51.pdb\" \"luajit/lib/lua51.pdb\"
+    mv \"luajit/src/src/luajit.exe\" \"luajit/lib/luajit.exe\"
+    mv \"luajit/src/src/luajit.exp\" \"luajit/lib/luajit.exp\"
+    mv \"luajit/src/src/luajit.lib\" \"luajit/lib/luajit.lib\"
+    mv \"luajit/src/src/luajit.pdb\" \"luajit/lib/luajit.pdb\"
+    mv \"luajit/src/src/minilua.exp\" \"luajit/lib/minilua.exp\"
+    mv \"luajit/src/src/minilua.lib\" \"luajit/lib/minilua.lib\"
+    mv \"luajit/src/src/vc140.pdb\" \"luajit/lib/vc140.pdb\"
+    if not exist \"luajit/include\" mkdir \"luajit/include\"
+    cp \"luajit/src/src/lua.h\" \"luajit/include/lua.h\"
+    cp \"luajit/src/src/lualib.h\" \"luajit/include/lualib.h\"
+    cp \"luajit/src/src/lauxlib.h\" \"luajit/include/lauxlib.h\"
+    cp \"luajit/src/src/luajit.h\" \"luajit/include/luajit.h\"
+    cp \"luajit/src/src/luaconf.h\" \"luajit/include/luaconf.h\"
+  "
+  echo "${build_luajit_bat}" >> "__temp/build_luajit.bat"
+  cmd.exe //Q //V //C "__temp\\build_luajit.bat"
+  rm "__temp/build_luajit.bat"
   
   if [ $compiler == "cl" ]; then
     if [ $linker != "link" ] && [ $linker != "lld-link" ]; then
