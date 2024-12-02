@@ -98,6 +98,16 @@ recipes.objFile = function(driver, proj)
   local output = proj:assert(driver.output,
     "recipes.objFile() called with a driver that has a nil output")
 
+  local printCmd = function()
+    local out = ""
+    lake.flatten(cmd):each(function(arg)
+      out = out..arg.." "
+    end)
+    print(out)
+  end
+
+  -- printCmd()
+
   return function()
     ensureDirExists(output)
     local capture = outputCapture()
@@ -110,6 +120,17 @@ recipes.objFile = function(driver, proj)
     end
 
     io.write(capture.s:get())
+  end
+end
+
+local makeDepsFromDepFile = function(path, ofile)
+  local existing_file = io.open(path, "r")
+
+  if existing_file then
+    local str = existing_file:read("*a")
+    for file in str:gmatch("%S+") do
+      lake.target(ofile):dependsOn(file)
+    end
   end
 end
 
@@ -135,6 +156,11 @@ recipes.lpp = function(driver, proj)
 
   -- printCmd()
 
+  if driver.depfile then
+    makeDepsFromDepFile(driver.depfile, driver.cpp.output)
+    makeDepsFromDepFile(driver.depfile, driver.cpp.input)
+  end
+
   lake.target(output):dependsOn(enosi.cwd.."/bin/lpp")
 
   return function()
@@ -149,17 +175,6 @@ recipes.lpp = function(driver, proj)
     end
 
     io.write(capture.s:get())
-  end
-end
-
-local makeDepsFromDepFile = function(path, ofile)
-  local existing_file = io.open(path, "r")
-
-  if existing_file then
-    local str = existing_file:read("*a")
-    for file in str:gmatch("%S+") do
-      lake.target(ofile):dependsOn(file)
-    end
   end
 end
 

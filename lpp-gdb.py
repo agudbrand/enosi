@@ -27,7 +27,7 @@ class str_printer:
         buf = buf.replace('\n', '\\n')
         buf = buf.replace('\t', '\\t')
         return f"\"{buf}\""
-pp.add_printer("str", r"^iro::utf8::str$", str_printer)
+pp.add_printer("String", r"^iro::utf8::String$", str_printer)
 
 class Path_printer:
     def __init__(self, val):
