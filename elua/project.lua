@@ -3,7 +3,7 @@ local recipes = require "recipes"
 local Driver = require "driver"
 local proj = enosi.thisProject()
 
-local mode = enosi.mode
+local mode = enosi.getConfigValue("mode")
 local cwd = lake.cwd()
 
 local builddir = cwd.."/build/"..mode.."/"

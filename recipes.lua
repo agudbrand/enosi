@@ -1,8 +1,7 @@
 --- Collection of common Lake recipes used to build various types of files.
 
-local enosi = require "enosi"
 local buffer = require "string.buffer"
-local driver = require "driver"
+local cwd = lake.cwd()
 local recipes = {}
 
 
@@ -37,7 +36,7 @@ local timedCmd = function(args, capture)
 end
 
 local localOutput = function(x)
-  return tostring(x):sub(#enosi.cwd+2)
+  return tostring(x):sub(#cwd+2)
 end
 
 local writeSuccessOnlyOutput = function(output, time_took)
@@ -132,10 +131,9 @@ recipes.lpp = function(driver, proj)
     end)
     print(out)
   end
-
   -- printCmd()
 
-  lake.target(output):dependsOn(enosi.cwd.."/bin/lpp")
+  lake.target(output):dependsOn(cwd.."/bin/lpp")
 
   return function()
     ensureDirExists(output)

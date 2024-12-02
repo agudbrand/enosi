@@ -263,11 +263,7 @@ local libs = Twine.new
   "LLVMMSP430Info"
 
 local cwd = lake.cwd()
-
-local user = enosi.getUser()
-user.llvm = user.llvm or {}
-
-local mode = user.llvm.mode or "Release"
+local mode = enosi.getConfigValue("mode")
 
 local builddir = cwd.."/build/"..mode.."/"
 lake.mkdir(builddir, {make_parents = true})
@@ -321,20 +317,20 @@ CMakeCache
 			"-DLLVM_OPTIMIZED_TABLEGEN=ON",
 			"-DLLVM_ENABLE_PROJECTS=clang;lld",
 			"-DCMAKE_BUILD_TYPE="..mode,
-			"-DLLVM_USE_LINKER="..(user.llvm.linker or "lld"),
+			"-DLLVM_USE_LINKER="..(enosi.getConfigValue("linker")),
       -- TODO(sushi) job pooling is apparently only supported when using 
       --             Ninja, but Ninja was giving me problems with rebuilding
       --             everything everytime I changed something so try using it
       --             again later so this works.
 			"-DLLVM_PARALLEL_COMPILE_JOBS="..
-        (user.llvm.max_compile_jobs or lake.getMaxJobs()),
+        (enosi.getConfigValue("max_compile_jobs") or lake.getMaxJobs()),
 			"-DLLVM_PARALLEL_LINK_JOBS="..
-        (user.llvm.max_link_jobs or lake.getMaxJobs()),
+        (enosi.getConfigValue("max_link_jobs") or lake.getMaxJobs()),
 			"-DLLVM_PARALLEL_TABLEGEN_JOBS="..
-        (user.llvm.max_tablegen_jobs or lake.getMaxJobs())
+        (enosi.getConfigValue("max_tablegen_jobs") or lake.getMaxJobs())
     }
 
-    if user.llvm.shared then
+    if enosi.getConfigValue("shared") then
       args:push "-DBUILD_SHARED_LIBS=OFF"
     end
 

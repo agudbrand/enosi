@@ -16,8 +16,37 @@ return
     "ecs"
   },
 
-  llvm = 
+  -- default config for all projects
+  default =
   {
-    mode = "Release",
+    mode = "debug",
+    compiler = "clang++",
+    linker = "mold",
+    disabled_warnings =
+    {
+      "switch",
+      "return-type-c-linkage",
+    },
+    compiler_flags =
+    {
+      ["clang++"] =
+      {
+        "-fmessage-length=80",
+        -- "-fcolor-diagnostics",
+        -- "-fno-caret-diagnostics",
+      }
+    },
+    linker_flags =
+    {
+      ["mold"] =
+      {
+        "-fmessage-length=80",
+      }
+    },
+  },
+
+  llvm =
+  {
+    mode = "release",
   }
 }

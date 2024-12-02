@@ -9,15 +9,16 @@
 --- does (I think).
 ---
 
-local enosi = require "enosi"
 local List = require "list"
-local buffer = require "string.buffer"
+local buffer = require "string.buffer" ---@alias buffer table
 
 --- Helper for generating a command which sanitizes falsy values and 
 --- empty args.
 ---
 --- An empty arg can cause weird behavior in some programs, particularly 
 --- bear, the program I use to generate my compile_commands.json.
+---@param ... any
+---@return List
 local cmdBuilder = function(...)
   local out = List{}
 
@@ -36,6 +37,8 @@ end
 ---@class Driver
 local Driver = {}
 
+---@param name string
+---@return Driver
 local makeDriver = function(name)
   Driver[name] = {}
   Driver[name].__index = Driver[name]
@@ -45,48 +48,55 @@ end
 --- Driver for C++ compilers. Compiles a single C++ file into 
 --- an object file.
 ---
----@class Driver.Cpp
---- The C++ std to use.
----@field std string
+---@class Driver.Cpp: Driver
+--- The name of the binary to use.
+---@field binary string
+--- If debug info should be emitted. Defaults to false.
+---@field debug_info boolean
+--- List of preprocessor defines provided in the form:
+---   { name1, name2, value2 }
+---@field defines List
+--- Force all symbols exposed to the dynamic table by default.
+--- Defaults to false.
+---@field export_all boolean
+--- Table of lists of binary-specific flags in the form:
+---   { ["binary1"]: { "-flag1", "-flag2" }, ["binary2"]: { "-flag3" } }
+---@field flags table
+--- Directories to search for includes.
+---@field include_dirs List
+--- Path to the C++ file.
+---@field input string
+--- Disable building with C++'s builtin RTTI. Defaults to false.
+---@field nortti boolean
 --- The optimization to use. Default is 'none'.
 --- May be one of:
 ---   none
 ---   size
 ---   speed
 ---@field opt string
---- List of preprocessor defines provided in the form:
----   { name, value }
----@field defines List
---- If debug info should be emitted.
----@field debug_info boolean
---- Directories to search for includes.
----@field include_dirs List
---- Path to the C++ file to compile.
----@field input string
 --- Path to the object file output.
 ---@field output string
---- Disable building with C++'s builtin RTTI
----@field nortti boolean
---- Force all symbols exposed to the dynamic table by default.
---- Default is false.
----@field export_all boolean
-local Cpp = makeDriver "Cpp"
-Driver.Cpp = Cpp
+--- The C++ std to use.
+---@field std string
+Driver.Cpp = makeDriver "Cpp"
 
 ---@return Driver.Cpp
-Cpp.new = function()
+Driver.Cpp.new = function()
   return setmetatable(
   {
     defines = List{},
+    flags = {},
     include_dirs = List{},
-    libs = List{},
-  }, Cpp)
+  }, Driver.Cpp)
 end
 
 --- Generates the IO independent flags since these are now needed
 --- by both Lpp and Cpp
+---@param self Driver.Cpp
+---@param proj Project
+---@return List
 local getCppIOIndependentFlags = function(self, proj)
-  if "clang++" == enosi.c.compiler then
+  if "clang++" == self.binary then
     local optmap =
     {
       none  = "-O0",
@@ -96,17 +106,14 @@ local getCppIOIndependentFlags = function(self, proj)
     local opt = proj:assert(optmap[self.opt or "none"],
       "invalid optimization level specified ", self.opt)
 
-    local debug_flag = ""
-    if self.debug_info then
-      debug_flag = "-ggdb3"
-    end
-
     return cmdBuilder(
       "-Wno-#warnings",
+      "-fdiagnostics-absolute-paths",
       "-std="..(self.std or "c++20"),
       self.nortti and "-fno-rtti" or "",
       opt,
-      enosi.c.cflags,
+      self.debug_info and "-ggdb3" or "",
+      self.flags[self.binary] or "",
       self.defines:map(function(d)
         if d[2] then
           return "-D"..d[1].."="..d[2]
@@ -117,27 +124,65 @@ local getCppIOIndependentFlags = function(self, proj)
       lake.flatten(self.include_dirs):map(function(d)
         return "-I"..d
       end),
-      debug_flag,
       -- NOTE(sushi) currently all projects are assumed to be able to export
       --             dynamic symbols via iro's EXPORT_DYNAMIC and on clang
       --             defaulting this to hidden is required for that to work
       --             properly with executables.
       "-fpatchable-function-entry=16",
       not self.export_all and "-fvisibility=hidden" or "")
+  elseif "cl" == self.binary then
+    local optmap =
+    {
+      none  = "-O0",
+      size  = "-O1",
+      speed = "-O2"
+    }
+    local opt = proj:assert(optmap[self.opt or "none"],
+      "invalid optimization level specified ", self.opt)
+
+    return cmdBuilder(
+      "-utf-8",
+      "-nologo",
+      "-FC", -- full paths in diagnostics
+      "-std:"..(self.std or "c++20"),
+      self.nortti and "-GR-" or "-GR",
+      opt,
+      self.debug_info and List{ "-Z7", "-Od" } or "",
+      self.flags[self.binary] or "",
+      self.defines:map(function(d)
+        if d[2] then
+          return "-D"..d[1].."="..d[2]
+        else
+          return "-D"..d[1]
+        end
+      end),
+      lake.flatten(self.include_dirs):map(function(d)
+        return "-I"..d
+      end))
+  else
+    return List{}
   end
 end
 
-Cpp.makeCmd = function(self, proj)
+---@param self Driver.Cpp
+---@param proj Project
+---@return List
+Driver.Cpp.makeCmd = function(self, proj)
   local cmd
-  if "clang++" == enosi.c.compiler then
+  if "clang++" == self.binary then
     cmd = cmdBuilder(
       "clang++",
-      "-c",
-      self.input,
+      "-c", self.input,
       "-o", self.output,
       getCppIOIndependentFlags(self, proj))
+  elseif "cl" == self.binary then
+    cmd = cmdBuilder(
+      "cl",
+      "-c", self.input,
+      "-Fo:", self.output,
+      getCppIOIndependentFlags(self, proj))
   else
-    error("Cpp driver not setup for compiler "..enosi.c.compiler)
+    error("Cpp driver not setup for compiler "..self.binary)
   end
   return cmd
 end
@@ -149,51 +194,56 @@ end
 --- which is just a newline delimited list of absolute paths to files 
 --- that the given C++ file depends on.
 ---
----@class Depfile
+---@class Driver.Depfile: Driver
+--- The name of the binary to use.
+---@field binary string
 --- List of preprocessor defines provided in the form:
----   { name, value }
+---   { name1, name2, value2 }
 ---@field defines List
+--- Table of lists of binary-specific flags in the form:
+---   { ["binary1"]: { "-flag1", "-flag2" }, ["binary2"]: { "-flag3" } }
+---@field flags table
 --- Directories to search for includes.
 ---@field include_dirs List
 --- Path to the C++ file.
 ---@field input string
-local Depfile = makeDriver "Depfile"
-Driver.Depfile = Depfile
+Driver.Depfile = makeDriver "Depfile"
 
----@return Depfile
-Depfile.new = function()
+---@return Driver.Depfile
+Driver.Depfile.new = function()
   return setmetatable(
   {
     defines = List{},
+    flags = {},
     include_dirs = List{},
-  }, Depfile)
+  }, Driver.Depfile)
 end
 
 --- Creates a Depfile driver from an existing Cpp driver.
 ---@param cpp Driver.Cpp
----@return Depfile
-Depfile.fromCpp = function(cpp)
+---@return Driver.Depfile
+Driver.Depfile.fromCpp = function(cpp)
   return setmetatable(
   {
     defines = cpp.defines,
     include_dirs = cpp.include_dirs,
     input = cpp.input,
-  }, Depfile)
+  }, Driver.Depfile)
 end
 
-string.startsWith = function(self, s)
-  return self:sub(1, #s) == s
-end
-
+---@param self Driver.Depfile
 ---@param proj Project
-Depfile.makeCmd = function(self, proj)
-  proj:assert(self.input, "Depfile.makeCmd called on a driver with no input")
+---@return List, fun(file:string):string
+Driver.Depfile.makeCmd = function(self, proj)
+  proj:assert(self.input, "Depfile.makeCmd called on a driver with nil input")
+
   local cmd
   local processFunc = nil
-  if "clang++" == enosi.c.compiler then
+  if "clang++" == self.binary then
     cmd = cmdBuilder(
       "clang++",
       self.input,
+      self.flags[self.binary] or "",
       self.defines:map(function(d)
         if d[2] then
           return "-D"..d[1].."="..d[2]
@@ -211,13 +261,11 @@ Depfile.makeCmd = function(self, proj)
       local out = buffer.new()
 
       for f in file:gmatch("%S+") do
-        if f:sub(-1) == ":" or
-           f == "\\"
-        then
+        if f:sub(-1) == ":" or f == "\\" then
           goto continue
         end
 
-        if not f:startsWith "generated" then
+        if f:sub(1, #"generated") ~= "generated" then
           local canonical = lake.canonicalizePath(f)
           proj:assert(canonical,
             "while generating depfile for "..self.input..":\n"..
@@ -229,33 +277,64 @@ Depfile.makeCmd = function(self, proj)
 
       return out:get()
     end
+  elseif "cl" == self.binary then
+    cmd = cmdBuilder(
+      "cl",
+      self.input,
+      self.flags[self.binary] or "",
+      self.defines:map(function(d)
+        if d[2] then
+          return "-D"..d[1].."="..d[2]
+        else
+          return "-D"..d[1]
+        end
+      end),
+      lake.flatten(self.include_dirs):map(function(d)
+        return "-I"..d
+      end),
+      "-sourceDependencies-")
+
+      processFunc = function(file)
+        local out = buffer.new()
+        local includes_array = file:match('"Includes":%s*(%b[])')
+        for include in includes_array:gmatch('"(.-)"') do
+          out:put(include, "\n")
+        end
+        return out:get()
+      end
   else
-    error("Depfile driver not setup for compiler "..enosi.c.compiler)
+    error("Depfile driver not setup for dependency finder "..self.binary)
   end
 
   return cmd, processFunc
 end
 
+
 --- Driver for linking object files and libraries into an executable or 
 --- shared library.
 ---
----@class Driver.Linker
---- Libraries to link against. CURRENTLY these are wrapped in a group
---- on Linux as I am still too lazy to figure out what the proper link order
---- is for llvm BUT when I get to Windows I'll need to figure that out UGH
----@field shared_libs List
---- Static libs to link against. This is primarily useful when a library 
---- outputs both static and shared libs under the same name and the shared 
---- lib is preferred (at least on linux, where -l<libname> prefers the 
---- static lib).
----@field static_libs List
---- List of directories to search for libs in.
----@field libdirs List
+---@class Driver.Linker: Driver
+--- The name of the binary to use.
+---@field binary string
+--- If debug info should be emitted.
+---@field debug_info boolean
+--- Force all symbols exposed to the dynamic table by default.
+--- Default is false.
+---@field export_all boolean
+--- Table of lists of binary-specific flags in the form:
+---   { ["binary1"]: { "-flag1", "-flag2" }, ["binary2"]: { "-flag3" } }
+---@field flags table
 --- Input files for the linker.
 ---@field inputs List
---- If this is meant to be an executable or shared lib.
----@field shared_lib boolean
---- The output file path
+--- List of directories to search for libs in.
+---@field libdirs List
+--- The optimization to use. Default is 'none'.
+--- May be one of:
+---   none
+---   size
+---   speed
+---@field opt string
+--- The output file path.
 ---@field output string
 --- Path to consider loading shared libraries from hardcoded into the 
 --- executable (at least on Linux, I don't know if Windows has an option
@@ -264,165 +343,209 @@ end
 --- for this, as it will be using absolute paths to point the exe at the 
 --- correct 
 ---@field rpath string
-local Linker = makeDriver "Linker"
-Driver.Linker = Linker
+--- If this is meant to be an executable or shared lib.
+---@field shared_lib boolean
+--- Shared libraries to link against. CURRENTLY these are wrapped in a group
+--- on Linux as I am still too lazy to figure out what the proper link order
+--- is for llvm BUT when I get to Windows I'll need to figure that out UGH
+---@field shared_libs List
+--- Static libraries to link against. This is primarily useful when a library
+--- outputs both static and shared libs under the same name and the shared
+--- lib is preferred (at least on linux, where -l<libname> prefers the
+--- static lib).
+---@field static_libs List
+Driver.Linker = makeDriver "Linker"
 
 ---@return Driver.Linker
-Linker.new = function()
+Driver.Linker.new = function()
   return setmetatable(
   {
+    flags = {},
     libs = List{},
-    inputs = List{},
     libdirs = List{},
-  }, Linker)
+  }, Driver.Linker)
 end
 
-Linker.makeCmd = function(self, proj)
+---@param self Driver.Linker
+---@param proj Project
+---@return List
+Driver.Linker.makeCmd = function(self, proj)
+  proj:assert(self.inputs,
+  "Linker.makeCmd called on a driver with nil inputs")
+  proj:assert(self.output,
+  "Linker.makeCmd called on a driver with nil output")
+  
   local cmd
-  if "clang++" == enosi.c.linker then
+  if "mold" == self.binary then
     cmd = cmdBuilder(
-      "clang++",
-      "-fuse-ld=mold", -- TODO(sushi) remove eventually 
+      "mold",
       self.inputs,
+      -- Expose all symbols so that lua obj file stuff is exposed and so that
+      -- things marked EXPORT_DYNAMIC are as well.
+      "-E",
+      self.shared_lib and "-shared" or "",
+      self.flags[self.binary] or "",
       lake.flatten(self.libdirs):map(function(dir)
         return "-L"..dir
       end),
-      "-Wl,--start-group",
+      "--start-group",
       lake.flatten(self.shared_libs):map(function(lib)
         return "-l"..lib
       end),
       lake.flatten(self.static_libs):map(function(lib)
         return "-l:lib"..lib..".a"
       end),
-      "-Wl,--end-group",
-      -- Expose all symbols so that lua obj file stuff is exposed and so that
-      -- things marked EXPORT_DYNAMIC are as well.
-      "-Wl,-E",
-      self.shared_lib and "-shared" or "",
+      "--end-group",
       -- Tell the executable to search its directory for libs to load.
-      "-Wl,-rpath,$ORIGIN",
+      "-rpath,$ORIGIN",
       "-o",
       self.output)
+  elseif "link" == self.binary then
+    local optmap =
+    {
+      none  = "",
+      size  = "-OPT:REF",
+      speed = "-OPT:REF"
+    }
+    local opt = proj:assert(optmap[self.opt or "none"],
+      "invalid optimization level specified ", self.opt)
+
+    local def = ""
+    if self.export_all then
+      --TODO
+    end
+
+    cmd = cmdBuilder(
+      "link",
+      self.inputs,
+      "-nologo",
+      opt,
+      def,
+      self.debug_info and "-DEBUG" or "",
+      self.shared_lib and "-DLL" or "",
+      self.flags[self.binary] or "",
+      lake.flatten(self.libdirs):map(function(dir)
+        return "-libpath:"..dir
+      end),
+      lake.flatten(self.shared_libs):map(function(lib)
+        return "-l"..lib
+      end),
+      lake.flatten(self.static_libs):map(function(lib)
+        return "-l:lib"..lib..".a"
+      end),
+      "-OUT:"..self.output)
   else
-    error("Linker driver not setup for linker "..enosi.c.linker)
+    error("Linker driver not setup for linker "..self.binary)
   end
 
   return cmd
 end
 
+
 --- Driver for creating an obj file from a lua file for statically linking 
 --- lua modules into executables.
 ---
----@class LuaObj
+---@class Driver.LuaObj: Driver
+--- Whether to leave debug info. Defaults to true.
+---@field debug_info boolean
 --- Input lua file.
 ---@field input string
 --- Output obj file.
 ---@field output string
---- Whether to leave debug info (default ON)
----@field debug_info boolean
-local LuaObj = makeDriver "LuaObj"
-Driver.LuaObj = LuaObj
+Driver.LuaObj = makeDriver "LuaObj"
 
----@return LuaObj
-LuaObj.new = function()
+---@return Driver.LuaObj
+Driver.LuaObj.new = function()
   return setmetatable(
   {
     debug_info = true
-  }, LuaObj)
+  }, Driver.LuaObj)
 end
 
-LuaObj.makeCmd = function(self, proj)
-  local cmd = List{}
-
-  proj:assert(self.input and self.output,
-    "LuaObj.makeCmd called on a driver with a nil input or output")
+---@param self Driver.LuaObj
+---@param proj Project
+---@return List
+Driver.LuaObj.makeCmd = function(self, proj)
+  proj:assert(self.input,
+    "LuaObj.makeCmd called on a driver with nil input")
+  proj:assert(self.output,
+    "LuaObj.makeCmd called on a driver with nil output")
 
   return cmdBuilder(
     "luajit",
     "-b",
-    self.debug_info and "-g",
+    self.debug_info and "-g" or "",
     self.input,
     self.output)
 end
 
+
 --- Driver for running standalone lua scripts using elua.
---- This assumes release elua has been built and exists in enosi's bin folder.
---- A driver is not reeeally necessary but doing so for consistency.
 ---
----@class LuaScript
+---@class Driver.LuaScript: Driver
+--- The path to the elua binary to use. Defaults to '<cwd>/bin/elua'.
+---@field binary string
 --- The lua script to run.
 ---@field input string
-local LuaScript = makeDriver "LuaScript"
-Driver.LuaScript = LuaScript
+Driver.LuaScript = makeDriver "LuaScript"
 
----@return LuaScript
-LuaScript.new = function()
-  return setmetatable({}, LuaScript)
+---@return Driver.LuaScript
+Driver.LuaScript.new = function()
+  return setmetatable({}, Driver.LuaScript)
 end
 
-LuaScript.makeCmd = function(self, proj)
-  local cmd = List{}
-
+---@param self Driver.LuaScript
+---@param proj Project
+---@return List
+Driver.LuaScript.makeCmd = function(self, proj)
   proj:assert(self.input,
     "LuaScript.makeCmd called on a driver with a nil input")
 
+  local binary = self.binary or lake.cwd().."/bin/elua"
+
   return cmdBuilder(
-    enosi.cwd.."/bin/elua",
+    binary,
     self.input)
 end
 
---- Driver for compiling lpp files.
+
+--- Driver for compiling lpp files using lpp.
 ---
----@class Driver.Lpp
+---@class Driver.Lpp: Driver
+--- The path to the lpp binary to use. Defaults to '<cwd>/bin/lpp'.
+---@field binary string
+--- The Cpp driver that will be used to build the resulting file.
+---@field cpp Driver.Cpp
 --- The file to compile.
 ---@field input string
 --- The file that will be output.
 ---@field output string
 --- Require dirs.
 ---@field requires List
---- The Cpp driver that will be used to build the resulting file.
----@field cpp Driver.Cpp
 --- Optional path to output a metafile to.
 ---@field metafile string
-local Lpp = makeDriver "Lpp"
-Driver.Lpp = Lpp
+Driver.Lpp = makeDriver "Lpp"
 
 ---@return Driver.Lpp
-Lpp.new = function()
+Driver.Lpp.new = function()
   return setmetatable(
   {
     requires = List{}
-  }, Lpp)
+  }, Driver.Lpp)
 end
 
-Lpp.makeCmd = function(self, proj)
-  local cmd = List{}
-
-  proj:assert(self.input and self.output, 
-    "Lpp.makeCmd called on a driver with a nil input or output")
-
+---@param self Driver.Lpp
+---@param proj Project
+---@return List
+Driver.Lpp.makeCmd = function(self, proj)
+  proj:assert(self.input,
+    "Lpp.makeCmd called on a driver with a nil input")
+  proj:assert(self.output,
+    "Lpp.makeCmd called on a driver with a nil output")
   proj:assert(self.cpp,
     "Lpp.makeCmd called on a driver with a nil Cpp driver")
 
-  local cppargs = getCppIOIndependentFlags(self.cpp, proj)
-
-  local cargs = "--cargs="
-
-  lake.flatten(cppargs):each(function(arg)
-    cargs = cargs..arg..","
-  end)
-
-  local requires = List{}
-  self.requires:each(function(require)
-    requires:push("-R")
-    requires:push(require)
-  end)
-
-  local includes = List{}
-  self.cpp.include_dirs:each(function(include)
-    includes:push("-I")
-    requires:push(include)
-  end)
+  local binary = self.binary or lake.cwd().."/bin/lpp"
 
   --- Used inside ECS to output UI widget use files.
   local cpp_path = "--cpp-path="..self.output
@@ -432,8 +555,23 @@ Lpp.makeCmd = function(self, proj)
     metafile = { "-om", self.metafile }
   end
 
+  local cargs = "--cargs="
+  local cppargs = getCppIOIndependentFlags(self.cpp, proj)
+  lake.flatten(cppargs):each(function(arg)
+    cargs = cargs..arg..","
+  end)
+
+  local requires = List{}
+  self.requires:each(function(require)
+    requires:push("-R")
+    requires:push(require)
+  end)
+  self.cpp.include_dirs:each(function(include)
+    requires:push(include)
+  end)
+
   return cmdBuilder(
-    enosi.cwd.."/bin/lpp",
+    binary,
     self.input,
     "-o", self.output,
     -- "--print-meta",
@@ -446,38 +584,42 @@ end
 
 --- Driver for generating a depfile using lpp.
 ---
----@class Driver.LppDepFile
+---@class Driver.LppDepFile: Driver
+--- The path to the lpp binary to use. Defaults to '<cwd>/bin/lpp'.
+---@field binary string
+--- The Cpp driver that will be used to build the resulting file.
+---@field cpp Driver.Cpp
 --- The file to compile.
 ---@field input string
 --- The file that will be output.
 ---@field output string
 --- Require dirs.
 ---@field requires List
---- The Cpp driver that will be used to build the resulting file.
----@field cpp Driver.Cpp
-local LppDepFile = makeDriver "LppDepFile"
-Driver.LppDepFile = LppDepFile
+Driver.LppDepFile = makeDriver "LppDepFile"
 
-LppDepFile.new = function()
+---@return Driver.LppDepFile
+Driver.LppDepFile.new = function()
   return setmetatable(
   {
     requires = List{}
-  }, LppDepFile)
+  }, Driver.LppDepFile)
 end
 
-LppDepFile.makeCmd = function(self, proj)
-  local cmd = List{}
-
-  proj:assert(self.input and self.output, 
-    "LppDepFile.makeCmd called on a driver with a nil input or output")
-
+---@param self Driver.LppDepFile
+---@param proj Project
+---@return List
+Driver.LppDepFile.makeCmd = function(self, proj)
+  proj:assert(self.input,
+    "LppDepFile.makeCmd called on a driver with a nil input")
+  proj:assert(self.output,
+    "LppDepFile.makeCmd called on a driver with a nil input")
   proj:assert(self.cpp,
     "LppDepFile.makeCmd called on a driver with a nil Cpp driver")
 
-  local cppargs = getCppIOIndependentFlags(self.cpp, proj)
+  local binary = self.binary or lake.cwd().."/bin/lpp"
 
   local cargs = "--cargs="
-
+  local cppargs = getCppIOIndependentFlags(self.cpp, proj)
   lake.flatten(cppargs):each(function(arg)
     cargs = cargs..arg..","
   end)
@@ -487,21 +629,45 @@ LppDepFile.makeCmd = function(self, proj)
     requires:push("-R")
     requires:push(require)
   end)
-
-  local includes = List{}
   self.cpp.include_dirs:each(function(include)
-    includes:push("-I")
     requires:push(include)
   end)
 
   return cmdBuilder(
-    enosi.cwd.."/bin/lpp",
+    binary,
     self.input,
     cargs,
-    -- "--print-meta",
     requires,
+    -- "--print-meta",
     "-D",
     self.output)
+end
+
+
+-- Formats the input library name into a static lib name for the target OS.
+---@param lib string
+---@return string
+Driver.getStaticLibName = function(lib)
+  if lake.os() == "Linux" then
+    return "lib"..lib..".a"
+  elseif lake.os() == "Windows" then
+    return lib..".lib"
+  else
+    error("unhandled OS")
+  end
+end
+
+-- Formats the input library name into a shared lib name for the target OS.
+---@param lib string
+---@return string
+Driver.getSharedLibName = function(lib)
+  if lake.os() == "Linux" then
+    return "lib"..lib..".so"
+  elseif lake.os() == "Windows" then
+    return lib..".dll"
+  else
+    error("unhandled OS")
+  end
 end
 
 return Driver
