@@ -24,3 +24,5 @@ elua/build/
 luajit/obj/
 
 lamu/build/
+
+llvm/src
