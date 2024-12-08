@@ -13,7 +13,8 @@ return
     "lppclang",
     "lake",
     "lpp",
-    "ecs"
+    "ecs",
+    -- "lamu"
   },
 
   llvm = 
